@@ -131,6 +131,8 @@ impl App {
                 "clear" => self.perform_clear(),
                 "drop" => self.perform_drop(),
                 "?" => self.show_operators(),
+                "deg" => self.perform_convert_to_degrees(),
+                "rad" => self.perform_convert_to_radians(),
                 _ => (),
             }
         }
@@ -295,28 +297,76 @@ impl App {
         self.stack.push(a);
     }
 
-    fn perform_sin(&self) {
-        todo!()
+    fn perform_sin(&mut self) {
+        if self.stack.is_empty() {
+            return;
+        }
+        let a = self.stack.pop().unwrap();
+        let result = a.sin();
+        self.stack.push(result);
     }
 
-    fn perform_cos(&self) {
-        todo!()
+    fn perform_cos(&mut self) {
+        if self.stack.is_empty() {
+            return;
+        }
+        let a = self.stack.pop().unwrap();
+        let result = a.cos();
+        self.stack.push(result);
     }
 
-    fn perform_tan(&self) {
-        todo!()
+    fn perform_tan(&mut self) {
+        if self.stack.is_empty() {
+            return;
+        }
+        let a = self.stack.pop().unwrap();
+        let result = a.tan();
+        self.stack.push(result);
     }
 
-    fn perform_asin(&self) {
-        todo!()
+    fn perform_convert_to_degrees(&mut self) {
+        if self.stack.is_empty() {
+            return;
+        }
+        let a = self.stack.pop().unwrap();
+        let result = a.to_degrees();
+        self.stack.push(result);
     }
 
-    fn perform_acos(&self) {
-        todo!()
+    fn perform_convert_to_radians(&mut self) {
+        if self.stack.is_empty() {
+            return;
+        }
+        let a = self.stack.pop().unwrap();
+        let result = a.to_radians();
+        self.stack.push(result);
     }
 
-    fn perform_atan(&self) {
-        todo!()
+    fn perform_asin(&mut self) {
+        if self.stack.is_empty() {
+            return;
+        }
+        let a = self.stack.pop().unwrap();
+        let result = a.asin();
+        self.stack.push(result);
+    }
+
+    fn perform_acos(&mut self) {
+        if self.stack.is_empty() {
+            return;
+        }
+        let a = self.stack.pop().unwrap();
+        let result = a.acos();
+        self.stack.push(result);
+    }
+
+    fn perform_atan(&mut self) {
+        if self.stack.is_empty() {
+            return;
+        }
+        let a = self.stack.pop().unwrap();
+        let result = a.atan();
+        self.stack.push(result);
     }
 
     fn perform_factorial(&mut self) {
