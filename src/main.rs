@@ -26,6 +26,8 @@ struct App {
     input_mode: InputMode,
     /// History of recorded messages
     stack: Vec<f64>,
+    undo: Vec<Vec<f64>>,
+    redo: Vec<Vec<f64>>,
 }
 
 enum InputMode {
@@ -39,6 +41,8 @@ impl App {
             input: String::new(),
             input_mode: InputMode::Editing,
             stack: Vec::new(),
+            undo: Vec::new(),
+            redo: Vec::new(),
             character_index: 0,
         }
     }
@@ -103,6 +107,7 @@ impl App {
 
     fn process_input(&mut self) {
         if let Ok(num) = self.input.parse::<f64>() {
+            self.undo.push(self.stack.clone());
             self.stack.push(num);
         } else {
             match self.input.as_str() {
@@ -112,27 +117,28 @@ impl App {
                 "*" => self.perform_operation(|a, b| a * b),
                 "" => self.perform_clone(),
                 "%" => self.perform_operation(|a, b| a % b),
-                "^" => self.perform_power_operation(),
-                "neg" => self.perform_negation(),
-                "abs" => self.perform_absolution(),
-                "sqrt" => self.perform_square_root(),
-                "sin" => self.perform_sin(),
-                "cos" => self.perform_cos(),
-                "tan" => self.perform_tan(),
-                "asin" => self.perform_asin(),
-                "acos" => self.perform_acos(),
-                "atan" => self.perform_atan(),
+                "^" => self.perform_operation(|a, b| b.powf(a)),
+                "neg" => self.perform_single_operand_operation(|a| -a),
+                "abs" => self.perform_single_operand_operation(|a| a.abs()),
+                "sqrt" => self.perform_single_operand_operation(|a| a.sqrt()),
+                "sin" => self.perform_single_operand_operation(|a| a.sin()),
+                "cos" => self.perform_single_operand_operation(|a| a.cos()),
+                "tan" => self.perform_single_operand_operation(|a| a.tan()),
+                "asin" => self.perform_single_operand_operation(|a| a.asin()),
+                "acos" => self.perform_single_operand_operation(|a| a.acos()),
+                "atan" => self.perform_single_operand_operation(|a| a.atan()),
+                "deg" => self.perform_single_operand_operation(|a| a.to_degrees()),
+                "rad" => self.perform_single_operand_operation(|a| a.to_radians()),
                 "!" => self.perform_factorial(),
-                "recip" => self.perform_reciprocal(),
-                "log10" => self.perform_logarithm_10(),
-                "logn" => self.perform_logarithm_n(),
-                "log2" => self.perform_logarithm_2(),
+                "recip" => self.perform_single_operand_operation(|a| 1.0 / a),
+                "log10" => self.perform_single_operand_operation(|a| a.log(10.0)),
+                "logn" => self.perform_single_operand_operation(|a| a.ln()),
+                "log2" => self.perform_single_operand_operation(|a| a.log(2.0)),
                 "swap" => self.perform_swap(),
                 "clear" => self.perform_clear(),
                 "drop" => self.perform_drop(),
-                "?" => self.show_operators(),
-                "deg" => self.perform_convert_to_degrees(),
-                "rad" => self.perform_convert_to_radians(),
+                "undo" => self.undo(),
+                "redo" => self.redo(),
                 _ => (),
             }
         }
@@ -241,50 +247,49 @@ impl App {
         frame.render_widget(stack, messages_area);
     }
 
-    fn perform_negation(&mut self) {
-        if self.stack.is_empty() {
-            return;
+    fn undo(&mut self) {
+        if let Some(previous_state) = self.undo.pop() {
+            // Restore the previous state of the stack.
+            //
+            self.redo.push(self.stack.clone());
+            self.stack = previous_state;
+        } else {
+            println!("Nothing to undo");
         }
-        let a = self.stack.pop().unwrap();
-        let result = -a;
-        self.stack.push(result);
     }
 
-    fn perform_absolution(&mut self) {
-        if self.stack.is_empty() {
-            return;
+    fn redo(&mut self) {
+        if let Some(redo_state) = self.redo.pop() {
+            //
+            self.undo.push(self.stack.clone());
+            self.stack = redo_state;
+        } else {
+            println!("Nothing to redo");
         }
-        let a = self.stack.pop().unwrap();
-        let result = a.abs();
-        self.stack.push(result);
     }
 
-    fn perform_square_root(&mut self) {
+    fn perform_single_operand_operation<F>(&mut self, operation: F)
+    where
+        F: FnOnce(f64) -> f64,
+    {
         if self.stack.is_empty() {
             return;
         }
-        let a = self.stack.pop().unwrap();
-        let result = a.sqrt();
-        self.stack.push(result);
+
+        self.undo.push(self.stack.clone()); // Save the current state for undo
+        let a = self.stack.pop().unwrap(); // Pop the operand
+        let result = operation(a); // Apply the operation
+        self.stack.push(result); // Push the result back onto the stack
     }
 
     fn perform_operation(&mut self, operation: fn(f64, f64) -> f64) {
         if self.stack.len() < 2 {
             return;
         }
+        self.undo.push(self.stack.clone());
         let b = self.stack.pop().unwrap();
         let a = self.stack.pop().unwrap();
         let result = operation(a, b);
-        self.stack.push(result);
-    }
-
-    fn perform_power_operation(&mut self) {
-        if self.stack.len() < 2 {
-            return;
-        }
-        let exponent = self.stack.pop().unwrap();
-        let base = self.stack.pop().unwrap();
-        let result = base.powf(exponent);
         self.stack.push(result);
     }
 
@@ -292,81 +297,10 @@ impl App {
         if self.stack.is_empty() {
             return;
         }
+        self.undo.push(self.stack.clone());
         let a = self.stack.pop().unwrap();
         self.stack.push(a);
         self.stack.push(a);
-    }
-
-    fn perform_sin(&mut self) {
-        if self.stack.is_empty() {
-            return;
-        }
-        let a = self.stack.pop().unwrap();
-        let result = a.sin();
-        self.stack.push(result);
-    }
-
-    fn perform_cos(&mut self) {
-        if self.stack.is_empty() {
-            return;
-        }
-        let a = self.stack.pop().unwrap();
-        let result = a.cos();
-        self.stack.push(result);
-    }
-
-    fn perform_tan(&mut self) {
-        if self.stack.is_empty() {
-            return;
-        }
-        let a = self.stack.pop().unwrap();
-        let result = a.tan();
-        self.stack.push(result);
-    }
-
-    fn perform_convert_to_degrees(&mut self) {
-        if self.stack.is_empty() {
-            return;
-        }
-        let a = self.stack.pop().unwrap();
-        let result = a.to_degrees();
-        self.stack.push(result);
-    }
-
-    fn perform_convert_to_radians(&mut self) {
-        if self.stack.is_empty() {
-            return;
-        }
-        let a = self.stack.pop().unwrap();
-        let result = a.to_radians();
-        self.stack.push(result);
-    }
-
-    fn perform_asin(&mut self) {
-        if self.stack.is_empty() {
-            return;
-        }
-        let a = self.stack.pop().unwrap();
-        let result = a.asin();
-        self.stack.push(result);
-    }
-
-    fn perform_acos(&mut self) {
-        if self.stack.is_empty() {
-            return;
-        }
-        let a = self.stack.pop().unwrap();
-        let result = a.acos();
-        self.stack.push(result);
-    }
-
-    fn perform_atan(&mut self) {
-        if self.stack.is_empty() {
-            return;
-        }
-        let a = self.stack.pop().unwrap();
-        let result = a.atan();
-        self.stack.push(result);
     }
 
     fn perform_factorial(&mut self) {
@@ -374,37 +308,31 @@ impl App {
             return;
         }
 
+        self.undo.push(self.stack.clone());
         let a = self.stack.pop().unwrap();
         let abs_a = a.abs();
-        let result = abs_a * abs_a;
-        self.stack.push(result);
-    }
 
-    fn perform_reciprocal(&mut self) {
-        if self.stack.is_empty() {
-            return;
+        fn factorial(n: u64) -> u64 {
+            let mut result = 1;
+            for i in 1..=n {
+                result *= i;
+            }
+            result
         }
-        let a = self.stack.pop().unwrap();
-        let result = 1.0 / a;
-        self.stack.push(result);
-    }
 
-    fn perform_logarithm_10(&self) {
-        todo!()
-    }
+        let rounded_a = abs_a.round() as u64; // Round to the nearest integer and cast to u64
 
-    fn perform_logarithm_n(&self) {
-        todo!()
-    }
+        // Calculate factorial
+        let result = factorial(rounded_a);
 
-    fn perform_logarithm_2(&self) {
-        todo!()
+        self.stack.push(result as f64);
     }
 
     fn perform_swap(&mut self) {
         if self.stack.len() < 2 {
             return;
         }
+        self.undo.push(self.stack.clone());
         let b = self.stack.pop().unwrap();
         let a = self.stack.pop().unwrap();
         self.stack.push(b);
@@ -412,6 +340,7 @@ impl App {
     }
 
     fn perform_clear(&mut self) {
+        self.undo.push(self.stack.clone());
         self.stack.truncate(0)
     }
 
@@ -419,10 +348,7 @@ impl App {
         if self.stack.is_empty() {
             return;
         }
+        self.undo.push(self.stack.clone());
         self.stack.pop().unwrap();
-    }
-
-    fn show_operators(&self) {
-        todo!()
     }
 }
