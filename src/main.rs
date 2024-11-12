@@ -107,8 +107,7 @@ impl App {
 
     fn process_input(&mut self) {
         if let Ok(num) = self.input.parse::<f64>() {
-            self.undo.push(self.stack.clone());
-            self.stack.push(num);
+            self.push_number(num);
         } else {
             match self.input.as_str() {
                 "+" => self.perform_operation(|a, b| a + b),
@@ -247,6 +246,12 @@ impl App {
         frame.render_widget(stack, messages_area);
     }
 
+    fn push_number(&mut self, num: f64) {
+        self.undo.push(self.stack.clone());
+        self.stack.push(num);
+        self.redo.clear();
+    }
+
     fn undo(&mut self) {
         if let Some(previous_state) = self.undo.pop() {
             // Restore the previous state of the stack.
@@ -280,6 +285,7 @@ impl App {
         let a = self.stack.pop().unwrap(); // Pop the operand
         let result = operation(a); // Apply the operation
         self.stack.push(result); // Push the result back onto the stack
+        self.redo.clear();
     }
 
     fn perform_operation(&mut self, operation: fn(f64, f64) -> f64) {
@@ -291,6 +297,7 @@ impl App {
         let a = self.stack.pop().unwrap();
         let result = operation(a, b);
         self.stack.push(result);
+        self.redo.clear();
     }
 
     fn perform_clone(&mut self) {
@@ -301,6 +308,7 @@ impl App {
         let a = self.stack.pop().unwrap();
         self.stack.push(a);
         self.stack.push(a);
+        self.redo.clear();
     }
 
     fn perform_factorial(&mut self) {
@@ -326,6 +334,7 @@ impl App {
         let result = factorial(rounded_a);
 
         self.stack.push(result as f64);
+        self.redo.clear();
     }
 
     fn perform_swap(&mut self) {
@@ -337,11 +346,12 @@ impl App {
         let a = self.stack.pop().unwrap();
         self.stack.push(b);
         self.stack.push(a);
+        self.redo.clear();
     }
 
     fn perform_clear(&mut self) {
         self.undo.push(self.stack.clone());
-        self.stack.truncate(0)
+        self.stack.clear();
     }
 
     fn perform_drop(&mut self) {
@@ -350,5 +360,245 @@ impl App {
         }
         self.undo.push(self.stack.clone());
         self.stack.pop().unwrap();
+    }
+}
+
+#[cfg(test)]
+mod tests {
+
+    use super::App;
+
+    mod tui {
+
+        use super::App;
+        #[test]
+        fn test_cursor_movement_left() {
+            let mut app = App::new();
+            app.input = String::from("hello");
+            app.character_index = 3;
+            app.move_cursor_left();
+            assert_eq!(app.character_index, 2);
+        }
+
+        #[test]
+        fn test_cursor_movement_right() {
+            let mut app = App::new();
+            app.input = String::from("hello");
+            app.character_index = 1;
+            app.move_cursor_right();
+            assert_eq!(app.character_index, 2);
+        }
+
+        #[test]
+        fn test_enter_char() {
+            let mut app = App::new();
+            app.enter_char('a');
+            assert_eq!(app.input, "a");
+            assert_eq!(app.character_index, 1);
+        }
+
+        #[test]
+        fn test_delete_char() {
+            let mut app = App::new();
+            app.input = String::from("hello");
+            app.character_index = 3;
+            app.delete_char();
+            assert_eq!(app.input, "helo");
+            assert_eq!(app.character_index, 2);
+        }
+    }
+
+    mod process_input {
+        use super::App;
+        #[test]
+        fn test_process_input() {
+            let mut app = App::new();
+            app.input = String::from("10");
+            app.process_input();
+            assert_eq!(app.stack, vec![10.0]);
+
+            app.input = String::from("95.678");
+            app.process_input();
+            assert_eq!(app.stack, vec![10.0, 95.678]);
+
+            app.input = String::from("+");
+            app.process_input();
+            assert_eq!(app.stack, vec![105.678]);
+        }
+    }
+
+    mod function_tests {
+        use super::App;
+        #[test]
+        fn test_push_number() {
+            let mut app = App::new();
+            app.push_number(5.6);
+            assert_eq!(app.stack.pop().unwrap(), 5.6);
+        }
+
+        #[test]
+        fn test_addition() {
+            let mut app = App::new();
+            app.push_number(5.0);
+            app.push_number(3.0);
+            app.perform_operation(|a, b| a + b);
+            assert_eq!(app.stack.pop().unwrap(), 8.0);
+        }
+
+        #[test]
+        fn test_subtraction() {
+            let mut app = App::new();
+            app.push_number(10.0);
+            app.push_number(4.0);
+            app.perform_operation(|a, b| a - b);
+            assert_eq!(app.stack.pop().unwrap(), 6.0);
+        }
+
+        #[test]
+        fn test_multiplication() {
+            let mut app = App::new();
+            app.push_number(2.0);
+            app.push_number(3.0);
+            app.perform_operation(|a, b| a * b);
+            assert_eq!(app.stack.pop().unwrap(), 6.0);
+        }
+
+        #[test]
+        fn test_division() {
+            let mut app = App::new();
+            app.push_number(10.0);
+            app.push_number(2.0);
+            app.perform_operation(|a, b| a / b);
+            assert_eq!(app.stack.pop().unwrap(), 5.0);
+        }
+
+        #[test]
+        fn test_clone() {
+            let mut app = App::new();
+            app.push_number(10.0);
+            app.push_number(2.0);
+            app.perform_clone();
+            assert_eq!(app.stack.pop().unwrap(), 2.0);
+        }
+
+        #[test]
+        fn test_modulo() {
+            let mut app = App::new();
+            app.push_number(17.0);
+            app.push_number(5.0);
+            app.perform_operation(|a, b| a % b);
+            assert_eq!(app.stack.pop().unwrap(), 2.0);
+        }
+
+        #[test]
+        fn test_exponent() {
+            let mut app = App::new();
+            app.push_number(4.0);
+            app.push_number(5.0);
+            app.perform_operation(|a, b| b.powf(a));
+            assert_eq!(app.stack.pop().unwrap(), 625.0);
+        }
+
+        #[test]
+        fn test_neg() {
+            let mut app = App::new();
+            app.push_number(4.0);
+            app.perform_single_operand_operation(|a| -a);
+            assert_eq!(app.stack.pop().unwrap(), -4.0);
+        }
+
+        #[test]
+        fn test_abs() {
+            let mut app = App::new();
+            app.push_number(-4.0);
+            app.perform_single_operand_operation(|a| a.abs());
+            assert_eq!(app.stack.pop().unwrap(), 4.0);
+        }
+
+        #[test]
+        fn test_sqrt() {
+            let mut app = App::new();
+            app.push_number(9.0);
+            app.perform_single_operand_operation(|a| a.sqrt());
+            assert_eq!(app.stack.pop().unwrap(), 3.0);
+        }
+
+        #[test]
+        fn test_sin() {
+            let mut app = App::new();
+            app.push_number(9.0);
+            app.perform_single_operand_operation(|a| a.sin());
+            assert_eq!(app.stack.pop().unwrap(), 0.4121184852417566);
+        }
+
+        #[test]
+        fn test_cos() {
+            let mut app = App::new();
+            app.push_number(5.0);
+            app.perform_single_operand_operation(|a| a.cos());
+            assert_eq!(app.stack.pop().unwrap(), 0.28366218546322625);
+        }
+
+        #[test]
+        fn test_tan() {
+            let mut app = App::new();
+            app.push_number(6.0);
+            app.perform_single_operand_operation(|a| a.tan());
+            assert_eq!(app.stack.pop().unwrap(), -0.29100619138474915);
+        }
+        #[test]
+        fn test_factorial() {
+            let mut app = App::new();
+            app.push_number(5.0);
+            app.perform_factorial();
+            assert_eq!(app.stack.pop().unwrap(), 120.0);
+        }
+
+        #[test]
+        fn test_undo_redo() {
+            let mut app = App::new();
+            app.push_number(3.0);
+            app.push_number(7.0);
+            app.perform_operation(|a, b| a + b);
+
+            // Verify that the stack has the result of the addition
+            assert_eq!(app.stack, vec![10.0]);
+
+            // Undo the addition, should revert to the original stack state
+            app.undo();
+            assert_eq!(app.stack, vec![3.0, 7.0]);
+
+            // Redo the addition, should return the stack to [10.0]
+            app.redo();
+            assert_eq!(app.stack, vec![10.0]);
+        }
+
+        #[test]
+        fn test_clear() {
+            let mut app = App::new();
+            app.push_number(42.0);
+            app.perform_clear();
+            assert!(app.stack.is_empty());
+        }
+
+        #[test]
+        fn test_drop() {
+            let mut app = App::new();
+            app.push_number(5.0);
+            app.push_number(10.0);
+            app.perform_drop();
+            assert_eq!(app.stack.len(), 1);
+            assert_eq!(app.stack.pop().unwrap(), 5.0);
+        }
+
+        #[test]
+        fn test_swap() {
+            let mut app = App::new();
+            app.push_number(1.0);
+            app.push_number(2.0);
+            app.perform_swap();
+            assert_eq!(app.stack.pop().unwrap(), 1.0);
+            assert_eq!(app.stack.pop().unwrap(), 2.0);
+        }
     }
 }
