@@ -141,6 +141,7 @@ impl App {
                 "undo" => self.undo(),
                 "redo" => self.redo(),
                 "inf" => self.push_infinity(),
+                "pi" => self.push_pi(),
                 _ => (),
             }
         }
@@ -258,6 +259,12 @@ impl App {
     fn push_infinity(&mut self) {
         self.undo.push(self.stack.clone());
         self.stack.push(f64::INFINITY);
+        self.redo.clear();
+    }
+
+    fn push_pi(&mut self) {
+        self.undo.push(self.stack.clone());
+        self.stack.push(f64::consts::PI);
         self.redo.clear();
     }
 
@@ -788,6 +795,14 @@ mod tests {
             app.process_input();
             assert_eq!(app.stack, vec![f64::INFINITY])
         }
+
+        #[test]
+        fn push_pi() {
+            let mut app = App::new();
+            app.input = String::from("pi");
+            app.process_input();
+            assert_eq!(app.stack, vec![f64::consts::PI])
+        }
     }
 
     mod function_tests {
@@ -1000,6 +1015,13 @@ mod tests {
         }
 
         #[test]
+        fn push_pi() {
+            let mut app = App::new();
+            app.push_pi();
+            assert_eq!(app.stack.pop().unwrap(), f64::consts::PI)
+        }
+
+        #[test]
         fn undo_redo() {
             let mut app = App::new();
             app.push_number(3.0);
@@ -1067,6 +1089,30 @@ mod tests {
             app.push_number(0.0);
             app.perform_operation(|a, b| a / b);
             assert_eq!(app.stack.pop().unwrap(), -f64::INFINITY);
+        }
+
+        #[test]
+        fn very_big_numbers() {
+            let mut app = App::new();
+            app.push_number(1_000_000_000_000_000_000_000.0);
+            app.push_number(1_000_000_000_000_000_000_000.0);
+            app.perform_operation(|a, b| a * b);
+            assert_eq!(
+                app.stack.pop().unwrap(),
+                1_000_000_000_000_000_000_000_000_000_000_000_000_000_000.0
+            )
+        }
+
+        #[test]
+        fn very_small_numbers() {
+            let mut app = App::new();
+            app.push_number(1.000_000_000_000_000_000_000);
+            app.push_number(1.000_000_000_000_000_000_000);
+            app.perform_operation(|a, b| a * b);
+            assert_eq!(
+                app.stack.pop().unwrap(),
+                1.000_000_000_000_000_000_000_000_000_000_000_000_000_000
+            )
         }
     }
 }
