@@ -7,3 +7,6 @@ edition = "2021"
 ratatui = "0.29.0"
 crossterm = "0.28.1"
 color-eyre = "0.6.3"
+
+[workspace.metadata.clippy]
+warnings = ["clippy::all"]

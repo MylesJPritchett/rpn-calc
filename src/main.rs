@@ -1,3 +1,5 @@
+use core::f64;
+
 use color_eyre::Result;
 use ratatui::{
     crossterm::event::{self, Event, KeyCode, KeyEventKind},
@@ -138,6 +140,7 @@ impl App {
                 "drop" => self.perform_drop(),
                 "undo" => self.undo(),
                 "redo" => self.redo(),
+                "inf" => self.push_infinity(),
                 _ => (),
             }
         }
@@ -249,6 +252,12 @@ impl App {
     fn push_number(&mut self, num: f64) {
         self.undo.push(self.stack.clone());
         self.stack.push(num);
+        self.redo.clear();
+    }
+
+    fn push_infinity(&mut self) {
+        self.undo.push(self.stack.clone());
+        self.stack.push(f64::INFINITY);
         self.redo.clear();
     }
 
@@ -372,7 +381,7 @@ mod tests {
 
         use super::App;
         #[test]
-        fn test_cursor_movement_left() {
+        fn cursor_movement_left() {
             let mut app = App::new();
             app.input = String::from("hello");
             app.character_index = 3;
@@ -381,7 +390,7 @@ mod tests {
         }
 
         #[test]
-        fn test_cursor_movement_right() {
+        fn cursor_movement_right() {
             let mut app = App::new();
             app.input = String::from("hello");
             app.character_index = 1;
@@ -390,7 +399,7 @@ mod tests {
         }
 
         #[test]
-        fn test_enter_char() {
+        fn enter_char() {
             let mut app = App::new();
             app.enter_char('a');
             assert_eq!(app.input, "a");
@@ -398,7 +407,7 @@ mod tests {
         }
 
         #[test]
-        fn test_delete_char() {
+        fn delete_char() {
             let mut app = App::new();
             app.input = String::from("hello");
             app.character_index = 3;
@@ -408,10 +417,15 @@ mod tests {
         }
     }
 
+    #[allow(clippy::approx_constant)]
     mod process_input {
+
+        use core::f64;
+
         use super::App;
+
         #[test]
-        fn test_process_input() {
+        fn addition() {
             let mut app = App::new();
             app.input = String::from("10");
             app.process_input();
@@ -425,19 +439,370 @@ mod tests {
             app.process_input();
             assert_eq!(app.stack, vec![105.678]);
         }
+
+        #[test]
+        fn subtraction() {
+            let mut app = App::new();
+            app.input = String::from("10");
+            app.process_input();
+            assert_eq!(app.stack, vec![10.0]);
+
+            app.input = String::from("4");
+            app.process_input();
+            assert_eq!(app.stack, vec![10.0, 4.0]);
+
+            app.input = String::from("-");
+            app.process_input();
+            assert_eq!(app.stack, vec![6.0]);
+        }
+
+        #[test]
+        fn multiplication() {
+            let mut app = App::new();
+            app.input = String::from("2");
+            app.process_input();
+            assert_eq!(app.stack, vec![2.0]);
+
+            app.input = String::from("3");
+            app.process_input();
+            assert_eq!(app.stack, vec![2.0, 3.0]);
+
+            app.input = String::from("*");
+            app.process_input();
+            assert_eq!(app.stack, vec![6.0]);
+        }
+
+        #[test]
+        fn division() {
+            let mut app = App::new();
+            app.input = String::from("10");
+            app.process_input();
+            assert_eq!(app.stack, vec![10.0]);
+
+            app.input = String::from("2");
+            app.process_input();
+            assert_eq!(app.stack, vec![10.0, 2.0]);
+
+            app.input = String::from("/");
+            app.process_input();
+            assert_eq!(app.stack, vec![5.0]);
+        }
+
+        #[test]
+        fn modulus() {
+            let mut app = App::new();
+            app.input = String::from("10");
+            app.process_input();
+            assert_eq!(app.stack, vec![10.0]);
+
+            app.input = String::from("3");
+            app.process_input();
+            assert_eq!(app.stack, vec![10.0, 3.0]);
+
+            app.input = String::from("%");
+            app.process_input();
+            assert_eq!(app.stack, vec![1.0]);
+        }
+
+        #[test]
+        fn exponentiation() {
+            let mut app = App::new();
+            app.input = String::from("2");
+            app.process_input();
+            assert_eq!(app.stack, vec![2.0]);
+
+            app.input = String::from("3");
+            app.process_input();
+            assert_eq!(app.stack, vec![2.0, 3.0]);
+
+            app.input = String::from("^");
+            app.process_input();
+            assert_eq!(app.stack, vec![9.0]);
+        }
+
+        #[test]
+        fn negation() {
+            let mut app = App::new();
+            app.input = String::from("10");
+            app.process_input();
+            assert_eq!(app.stack, vec![10.0]);
+
+            app.input = String::from("neg");
+            app.process_input();
+            assert_eq!(app.stack, vec![-10.0]);
+        }
+
+        #[test]
+        fn absolute_value() {
+            let mut app = App::new();
+            app.input = String::from("-5");
+            app.process_input();
+            assert_eq!(app.stack, vec![-5.0]);
+
+            app.input = String::from("abs");
+            app.process_input();
+            assert_eq!(app.stack, vec![5.0]);
+        }
+
+        #[test]
+        fn square_root() {
+            let mut app = App::new();
+            app.input = String::from("16");
+            app.process_input();
+            assert_eq!(app.stack, vec![16.0]);
+
+            app.input = String::from("sqrt");
+            app.process_input();
+            assert_eq!(app.stack, vec![4.0]);
+        }
+
+        #[test]
+        fn sine() {
+            let mut app = App::new();
+            app.input = String::from("0");
+            app.process_input();
+            assert_eq!(app.stack, vec![0.0]);
+
+            app.input = String::from("sin");
+            app.process_input();
+            assert_eq!(app.stack, vec![0.0]);
+        }
+
+        #[test]
+        fn cosine() {
+            let mut app = App::new();
+            app.input = String::from("0");
+            app.process_input();
+            assert_eq!(app.stack, vec![0.0]);
+
+            app.input = String::from("cos");
+            app.process_input();
+            assert_eq!(app.stack, vec![1.0]);
+        }
+
+        #[test]
+        fn tangent() {
+            let mut app = App::new();
+            app.input = String::from("0");
+            app.process_input();
+            assert_eq!(app.stack, vec![0.0]);
+
+            app.input = String::from("tan");
+            app.process_input();
+            assert_eq!(app.stack, vec![0.0]);
+        }
+
+        #[test]
+        fn arcsine() {
+            let mut app = App::new();
+            app.input = String::from("1");
+            app.process_input();
+            assert_eq!(app.stack, vec![1.0]);
+
+            app.input = String::from("asin");
+            app.process_input();
+            assert_eq!(app.stack, vec![1.5707963267948966]); // ~π/2
+        }
+
+        #[test]
+        fn arccosine() {
+            let mut app = App::new();
+            app.input = String::from("1");
+            app.process_input();
+            assert_eq!(app.stack, vec![1.0]);
+
+            app.input = String::from("acos");
+            app.process_input();
+            assert_eq!(app.stack, vec![0.0]);
+        }
+
+        #[test]
+        fn arctangent() {
+            let mut app = App::new();
+            app.input = String::from("1");
+            app.process_input();
+            assert_eq!(app.stack, vec![1.0]);
+
+            app.input = String::from("atan");
+            app.process_input();
+            assert_eq!(app.stack, vec![0.7853981633974483]); // ~π/4
+        }
+
+        #[test]
+        fn degrees_conversion() {
+            let mut app = App::new();
+            app.input = String::from("3.141592653589793"); // π
+            app.process_input();
+            assert_eq!(app.stack, vec![3.141592653589793]);
+
+            app.input = String::from("deg");
+            app.process_input();
+            assert_eq!(app.stack, vec![180.0]);
+        }
+
+        #[test]
+        fn radians_conversion() {
+            let mut app = App::new();
+            app.input = String::from("180");
+            app.process_input();
+            assert_eq!(app.stack, vec![180.0]);
+
+            app.input = String::from("rad");
+            app.process_input();
+            assert_eq!(app.stack, vec![3.141592653589793]); // ~π
+        }
+
+        #[test]
+        fn factorial() {
+            let mut app = App::new();
+            app.input = String::from("5");
+            app.process_input();
+            assert_eq!(app.stack, vec![5.0]);
+
+            app.input = String::from("!");
+            app.process_input();
+            assert_eq!(app.stack, vec![120.0]);
+        }
+
+        #[test]
+        fn reciprocal() {
+            let mut app = App::new();
+            app.input = String::from("4");
+            app.process_input();
+            assert_eq!(app.stack, vec![4.0]);
+
+            app.input = String::from("recip");
+            app.process_input();
+            assert_eq!(app.stack, vec![0.25]);
+        }
+
+        #[test]
+        fn log_base_10() {
+            let mut app = App::new();
+            app.input = String::from("100");
+            app.process_input();
+            assert_eq!(app.stack, vec![100.0]);
+
+            app.input = String::from("log10");
+            app.process_input();
+            assert_eq!(app.stack, vec![2.0]);
+        }
+
+        #[test]
+        fn log_base_natural() {
+            let mut app = App::new();
+            app.input = String::from("2.718281828459045"); // e
+            app.process_input();
+            assert_eq!(app.stack, vec![2.718281828459045]);
+
+            app.input = String::from("logn");
+            app.process_input();
+            assert_eq!(app.stack, vec![1.0]);
+        }
+
+        #[test]
+        fn log_base_2() {
+            let mut app = App::new();
+            app.input = String::from("8");
+            app.process_input();
+            assert_eq!(app.stack, vec![8.0]);
+
+            app.input = String::from("log2");
+            app.process_input();
+            assert_eq!(app.stack, vec![3.0]);
+        }
+
+        #[test]
+        fn swap() {
+            let mut app = App::new();
+            app.input = String::from("10");
+            app.process_input();
+            app.input = String::from("5");
+            app.process_input();
+
+            app.input = String::from("swap");
+            app.process_input();
+            assert_eq!(app.stack, vec![5.0, 10.0]);
+        }
+
+        #[test]
+        fn clear() {
+            let mut app = App::new();
+            app.input = String::from("10");
+            app.process_input();
+            app.input = String::from("5");
+            app.process_input();
+
+            app.input = String::from("clear");
+            app.process_input();
+            assert_eq!(app.stack, vec![]);
+        }
+
+        #[test]
+        fn drop() {
+            let mut app = App::new();
+            app.input = String::from("10");
+            app.process_input();
+            app.input = String::from("5");
+            app.process_input();
+
+            app.input = String::from("drop");
+            app.process_input();
+            assert_eq!(app.stack, vec![10.0]);
+        }
+
+        #[test]
+        fn undo_redo() {
+            let mut app = App::new();
+
+            // Push 3.0 to the stack
+            app.input = String::from("3");
+            app.process_input();
+            assert_eq!(app.stack, vec![3.0]);
+
+            // Push 7.0 to the stack
+            app.input = String::from("7");
+            app.process_input();
+            assert_eq!(app.stack, vec![3.0, 7.0]);
+
+            // Perform addition
+            app.input = String::from("+");
+            app.process_input();
+            assert_eq!(app.stack, vec![10.0]);
+
+            // Undo the addition
+            app.input = String::from("undo");
+            app.process_input();
+            assert_eq!(app.stack, vec![3.0, 7.0]);
+
+            // Redo the addition
+            app.input = String::from("redo");
+            app.process_input();
+            assert_eq!(app.stack, vec![10.0]);
+        }
+
+        #[test]
+        fn push_infinity() {
+            let mut app = App::new();
+            app.input = String::from("inf");
+            app.process_input();
+            assert_eq!(app.stack, vec![f64::INFINITY])
+        }
     }
 
     mod function_tests {
+        use core::f64;
+
         use super::App;
         #[test]
-        fn test_push_number() {
+        fn push_number() {
             let mut app = App::new();
             app.push_number(5.6);
             assert_eq!(app.stack.pop().unwrap(), 5.6);
         }
 
         #[test]
-        fn test_addition() {
+        fn addition() {
             let mut app = App::new();
             app.push_number(5.0);
             app.push_number(3.0);
@@ -446,7 +811,7 @@ mod tests {
         }
 
         #[test]
-        fn test_subtraction() {
+        fn subtraction() {
             let mut app = App::new();
             app.push_number(10.0);
             app.push_number(4.0);
@@ -455,7 +820,7 @@ mod tests {
         }
 
         #[test]
-        fn test_multiplication() {
+        fn multiplication() {
             let mut app = App::new();
             app.push_number(2.0);
             app.push_number(3.0);
@@ -464,7 +829,7 @@ mod tests {
         }
 
         #[test]
-        fn test_division() {
+        fn division() {
             let mut app = App::new();
             app.push_number(10.0);
             app.push_number(2.0);
@@ -473,7 +838,7 @@ mod tests {
         }
 
         #[test]
-        fn test_clone() {
+        fn clone() {
             let mut app = App::new();
             app.push_number(10.0);
             app.push_number(2.0);
@@ -482,7 +847,7 @@ mod tests {
         }
 
         #[test]
-        fn test_modulo() {
+        fn modulo() {
             let mut app = App::new();
             app.push_number(17.0);
             app.push_number(5.0);
@@ -491,7 +856,7 @@ mod tests {
         }
 
         #[test]
-        fn test_exponent() {
+        fn exponent() {
             let mut app = App::new();
             app.push_number(4.0);
             app.push_number(5.0);
@@ -500,7 +865,7 @@ mod tests {
         }
 
         #[test]
-        fn test_neg() {
+        fn neg() {
             let mut app = App::new();
             app.push_number(4.0);
             app.perform_single_operand_operation(|a| -a);
@@ -508,7 +873,7 @@ mod tests {
         }
 
         #[test]
-        fn test_abs() {
+        fn abs() {
             let mut app = App::new();
             app.push_number(-4.0);
             app.perform_single_operand_operation(|a| a.abs());
@@ -516,7 +881,7 @@ mod tests {
         }
 
         #[test]
-        fn test_sqrt() {
+        fn sqrt() {
             let mut app = App::new();
             app.push_number(9.0);
             app.perform_single_operand_operation(|a| a.sqrt());
@@ -524,7 +889,7 @@ mod tests {
         }
 
         #[test]
-        fn test_sin() {
+        fn sin() {
             let mut app = App::new();
             app.push_number(9.0);
             app.perform_single_operand_operation(|a| a.sin());
@@ -532,7 +897,7 @@ mod tests {
         }
 
         #[test]
-        fn test_cos() {
+        fn cos() {
             let mut app = App::new();
             app.push_number(5.0);
             app.perform_single_operand_operation(|a| a.cos());
@@ -540,14 +905,55 @@ mod tests {
         }
 
         #[test]
-        fn test_tan() {
+        fn tan() {
             let mut app = App::new();
             app.push_number(6.0);
             app.perform_single_operand_operation(|a| a.tan());
             assert_eq!(app.stack.pop().unwrap(), -0.29100619138474915);
         }
+
         #[test]
-        fn test_factorial() {
+        fn asin() {
+            let mut app = App::new();
+            app.push_number(0.6);
+            app.perform_single_operand_operation(|a| a.asin());
+            assert_eq!(app.stack.pop().unwrap(), 0.6435011087932844);
+        }
+
+        #[test]
+        fn acos() {
+            let mut app = App::new();
+            app.push_number(0.7);
+            app.perform_single_operand_operation(|a| a.acos());
+            assert_eq!(app.stack.pop().unwrap(), 0.7953988301841436);
+        }
+
+        #[test]
+        fn atan() {
+            let mut app = App::new();
+            app.push_number(5.0);
+            app.perform_single_operand_operation(|a| a.atan());
+            assert_eq!(app.stack.pop().unwrap(), 1.373400766945016);
+        }
+
+        #[test]
+        fn convert_to_degrees() {
+            let mut app = App::new();
+            app.push_number(1.0);
+            app.perform_single_operand_operation(|a| a.to_degrees());
+            assert_eq!(app.stack.pop().unwrap(), 57.29577951308232);
+        }
+
+        #[test]
+        fn convert_to_radians() {
+            let mut app = App::new();
+            app.push_number(95.0);
+            app.perform_single_operand_operation(|a| a.to_radians());
+            assert_eq!(app.stack.pop().unwrap(), 1.6580627893946132);
+        }
+
+        #[test]
+        fn factorial() {
             let mut app = App::new();
             app.push_number(5.0);
             app.perform_factorial();
@@ -555,7 +961,46 @@ mod tests {
         }
 
         #[test]
-        fn test_undo_redo() {
+        fn recipricol() {
+            let mut app = App::new();
+            app.push_number(4.0);
+            app.perform_single_operand_operation(|a| 1.0 / a);
+            assert_eq!(app.stack.pop().unwrap(), 0.25);
+        }
+
+        #[test]
+        fn log10() {
+            let mut app = App::new();
+            app.push_number(50.0);
+            app.perform_single_operand_operation(|a| a.log(10.0));
+            assert_eq!(app.stack.pop().unwrap(), 1.6989700043360185);
+        }
+
+        #[test]
+        fn logn() {
+            let mut app = App::new();
+            app.push_number(50.0);
+            app.perform_single_operand_operation(|a| a.ln());
+            assert_eq!(app.stack.pop().unwrap(), 3.912023005428146);
+        }
+
+        #[test]
+        fn log2() {
+            let mut app = App::new();
+            app.push_number(50.0);
+            app.perform_single_operand_operation(|a| a.log(2.0));
+            assert_eq!(app.stack.pop().unwrap(), 5.643856189774724);
+        }
+
+        #[test]
+        fn push_infinity() {
+            let mut app = App::new();
+            app.push_infinity();
+            assert_eq!(app.stack.pop().unwrap(), f64::INFINITY)
+        }
+
+        #[test]
+        fn undo_redo() {
             let mut app = App::new();
             app.push_number(3.0);
             app.push_number(7.0);
@@ -574,7 +1019,7 @@ mod tests {
         }
 
         #[test]
-        fn test_clear() {
+        fn clear() {
             let mut app = App::new();
             app.push_number(42.0);
             app.perform_clear();
@@ -582,7 +1027,7 @@ mod tests {
         }
 
         #[test]
-        fn test_drop() {
+        fn drop() {
             let mut app = App::new();
             app.push_number(5.0);
             app.push_number(10.0);
@@ -592,13 +1037,36 @@ mod tests {
         }
 
         #[test]
-        fn test_swap() {
+        fn swap() {
             let mut app = App::new();
             app.push_number(1.0);
             app.push_number(2.0);
             app.perform_swap();
             assert_eq!(app.stack.pop().unwrap(), 1.0);
             assert_eq!(app.stack.pop().unwrap(), 2.0);
+        }
+    }
+
+    mod edge_cases {
+
+        use super::App;
+
+        #[test]
+        fn divide_pos_by_0() {
+            let mut app = App::new();
+            app.push_number(10.0);
+            app.push_number(0.0);
+            app.perform_operation(|a, b| a / b);
+            assert_eq!(app.stack.pop().unwrap(), f64::INFINITY);
+        }
+
+        #[test]
+        fn divide_neg_by_0() {
+            let mut app = App::new();
+            app.push_number(-10.0);
+            app.push_number(0.0);
+            app.perform_operation(|a, b| a / b);
+            assert_eq!(app.stack.pop().unwrap(), -f64::INFINITY);
         }
     }
 }
