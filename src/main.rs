@@ -373,10 +373,10 @@ impl App {
         let a = self.stack.pop().unwrap();
         let abs_a = a.abs();
 
-        fn factorial(n: u64) -> u64 {
-            let mut result = 1;
+        fn factorial(n: u64) -> f64 {
+            let mut result = 1.0;
             for i in 1..=n {
-                result *= i;
+                result *= i as f64;
             }
             result
         }
@@ -386,7 +386,7 @@ impl App {
         // Calculate factorial
         let result = factorial(rounded_a);
 
-        self.stack.push(result as f64);
+        self.stack.push(result);
         self.redo.clear();
     }
 
