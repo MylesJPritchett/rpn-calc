@@ -61,7 +61,7 @@ impl App {
         let reader = BufReader::new(file);
         let stack = reader
             .lines()
-            .filter_map(Result::ok)
+            .map_while(Result::ok)
             .filter_map(|line| line.parse::<f64>().ok())
             .collect();
         Ok(stack)
