@@ -1,4 +1,6 @@
 use core::f64;
+use std::fs::File;
+use std::io::{BufRead, BufReader, Write};
 
 use color_eyre::Result;
 use ratatui::{
@@ -17,6 +19,8 @@ fn main() -> Result<()> {
     ratatui::restore();
     app_result
 }
+
+const STACK_FILE: &str = "stack.txt";
 
 /// App holds the state of the application
 struct App {
@@ -38,15 +42,29 @@ enum InputMode {
 }
 
 impl App {
-    const fn new() -> Self {
+    fn new() -> Self {
         Self {
             input: String::new(),
             input_mode: InputMode::Editing,
-            stack: Vec::new(),
+            stack: App::load_stack().unwrap_or_default(),
             undo: Vec::new(),
             redo: Vec::new(),
             character_index: 0,
         }
+    }
+
+    fn load_stack() -> Result<Vec<f64>> {
+        if !std::path::Path::new(STACK_FILE).exists() {
+            return Ok(Vec::new());
+        }
+        let file = File::open(STACK_FILE)?;
+        let reader = BufReader::new(file);
+        let stack = reader
+            .lines()
+            .filter_map(Result::ok)
+            .filter_map(|line| line.parse::<f64>().ok())
+            .collect();
+        Ok(stack)
     }
 
     fn move_cursor_left(&mut self) {
@@ -107,12 +125,20 @@ impl App {
         self.character_index = 0;
     }
 
-    fn process_input(&mut self) -> bool {
+    fn save_stack(&self) -> Result<()> {
+        let mut file = File::create(STACK_FILE)?;
+        for num in &self.stack {
+            writeln!(file, "{num}")?;
+        }
+        Ok(())
+    }
+
+    fn process_input(&mut self) -> Result<bool> {
         if let Ok(num) = self.input.parse::<f64>() {
             self.push_number(num);
         } else {
             match self.input.as_str() {
-                "quit" => return false,
+                "quit" => return Ok(false),
                 "+" => self.perform_operation(|a, b| a + b),
                 "-" => self.perform_operation(|a, b| a - b),
                 "/" => self.perform_operation(|a, b| a / b),
@@ -148,7 +174,8 @@ impl App {
         }
         self.input.clear();
         self.reset_cursor();
-        true
+        self.save_stack()?;
+        Ok(true)
     }
 
     fn run(mut self, mut terminal: DefaultTerminal) -> Result<()> {
@@ -168,7 +195,7 @@ impl App {
                     },
                     InputMode::Editing if key.kind == KeyEventKind::Press => match key.code {
                         KeyCode::Enter => {
-                            if !self.process_input() {
+                            if !self.process_input()? {
                                 return Ok(());
                             }
                         }
@@ -479,15 +506,15 @@ mod tests {
         fn addition() {
             let mut app = App::new();
             app.input = String::from("10");
-            app.process_input();
+            app.process_input().unwrap();
             assert_eq!(app.stack, vec![10.0]);
 
             app.input = String::from("95.678");
-            app.process_input();
+            app.process_input().unwrap();
             assert_eq!(app.stack, vec![10.0, 95.678]);
 
             app.input = String::from("+");
-            app.process_input();
+            app.process_input().unwrap();
             assert_eq!(app.stack, vec![105.678]);
         }
 
@@ -495,15 +522,15 @@ mod tests {
         fn subtraction() {
             let mut app = App::new();
             app.input = String::from("10");
-            app.process_input();
+            app.process_input().unwrap();
             assert_eq!(app.stack, vec![10.0]);
 
             app.input = String::from("4");
-            app.process_input();
+            app.process_input().unwrap();
             assert_eq!(app.stack, vec![10.0, 4.0]);
 
             app.input = String::from("-");
-            app.process_input();
+            app.process_input().unwrap();
             assert_eq!(app.stack, vec![6.0]);
         }
 
@@ -511,15 +538,15 @@ mod tests {
         fn multiplication() {
             let mut app = App::new();
             app.input = String::from("2");
-            app.process_input();
+            app.process_input().unwrap();
             assert_eq!(app.stack, vec![2.0]);
 
             app.input = String::from("3");
-            app.process_input();
+            app.process_input().unwrap();
             assert_eq!(app.stack, vec![2.0, 3.0]);
 
             app.input = String::from("*");
-            app.process_input();
+            app.process_input().unwrap();
             assert_eq!(app.stack, vec![6.0]);
         }
 
@@ -527,15 +554,15 @@ mod tests {
         fn division() {
             let mut app = App::new();
             app.input = String::from("10");
-            app.process_input();
+            app.process_input().unwrap();
             assert_eq!(app.stack, vec![10.0]);
 
             app.input = String::from("2");
-            app.process_input();
+            app.process_input().unwrap();
             assert_eq!(app.stack, vec![10.0, 2.0]);
 
             app.input = String::from("/");
-            app.process_input();
+            app.process_input().unwrap();
             assert_eq!(app.stack, vec![5.0]);
         }
 
@@ -543,15 +570,15 @@ mod tests {
         fn modulus() {
             let mut app = App::new();
             app.input = String::from("10");
-            app.process_input();
+            app.process_input().unwrap();
             assert_eq!(app.stack, vec![10.0]);
 
             app.input = String::from("3");
-            app.process_input();
+            app.process_input().unwrap();
             assert_eq!(app.stack, vec![10.0, 3.0]);
 
             app.input = String::from("%");
-            app.process_input();
+            app.process_input().unwrap();
             assert_eq!(app.stack, vec![1.0]);
         }
 
@@ -559,15 +586,15 @@ mod tests {
         fn exponentiation() {
             let mut app = App::new();
             app.input = String::from("2");
-            app.process_input();
+            app.process_input().unwrap();
             assert_eq!(app.stack, vec![2.0]);
 
             app.input = String::from("3");
-            app.process_input();
+            app.process_input().unwrap();
             assert_eq!(app.stack, vec![2.0, 3.0]);
 
             app.input = String::from("^");
-            app.process_input();
+            app.process_input().unwrap();
             assert_eq!(app.stack, vec![9.0]);
         }
 
@@ -575,11 +602,11 @@ mod tests {
         fn negation() {
             let mut app = App::new();
             app.input = String::from("10");
-            app.process_input();
+            app.process_input().unwrap();
             assert_eq!(app.stack, vec![10.0]);
 
             app.input = String::from("neg");
-            app.process_input();
+            app.process_input().unwrap();
             assert_eq!(app.stack, vec![-10.0]);
         }
 
@@ -587,11 +614,11 @@ mod tests {
         fn absolute_value() {
             let mut app = App::new();
             app.input = String::from("-5");
-            app.process_input();
+            app.process_input().unwrap();
             assert_eq!(app.stack, vec![-5.0]);
 
             app.input = String::from("abs");
-            app.process_input();
+            app.process_input().unwrap();
             assert_eq!(app.stack, vec![5.0]);
         }
 
@@ -599,11 +626,11 @@ mod tests {
         fn square_root() {
             let mut app = App::new();
             app.input = String::from("16");
-            app.process_input();
+            app.process_input().unwrap();
             assert_eq!(app.stack, vec![16.0]);
 
             app.input = String::from("sqrt");
-            app.process_input();
+            app.process_input().unwrap();
             assert_eq!(app.stack, vec![4.0]);
         }
 
@@ -611,11 +638,11 @@ mod tests {
         fn sine() {
             let mut app = App::new();
             app.input = String::from("0");
-            app.process_input();
+            app.process_input().unwrap();
             assert_eq!(app.stack, vec![0.0]);
 
             app.input = String::from("sin");
-            app.process_input();
+            app.process_input().unwrap();
             assert_eq!(app.stack, vec![0.0]);
         }
 
@@ -623,11 +650,11 @@ mod tests {
         fn cosine() {
             let mut app = App::new();
             app.input = String::from("0");
-            app.process_input();
+            app.process_input().unwrap();
             assert_eq!(app.stack, vec![0.0]);
 
             app.input = String::from("cos");
-            app.process_input();
+            app.process_input().unwrap();
             assert_eq!(app.stack, vec![1.0]);
         }
 
@@ -635,11 +662,11 @@ mod tests {
         fn tangent() {
             let mut app = App::new();
             app.input = String::from("0");
-            app.process_input();
+            app.process_input().unwrap();
             assert_eq!(app.stack, vec![0.0]);
 
             app.input = String::from("tan");
-            app.process_input();
+            app.process_input().unwrap();
             assert_eq!(app.stack, vec![0.0]);
         }
 
@@ -647,11 +674,11 @@ mod tests {
         fn arcsine() {
             let mut app = App::new();
             app.input = String::from("1");
-            app.process_input();
+            app.process_input().unwrap();
             assert_eq!(app.stack, vec![1.0]);
 
             app.input = String::from("asin");
-            app.process_input();
+            app.process_input().unwrap();
             assert_eq!(app.stack, vec![1.5707963267948966]); // ~π/2
         }
 
@@ -659,11 +686,11 @@ mod tests {
         fn arccosine() {
             let mut app = App::new();
             app.input = String::from("1");
-            app.process_input();
+            app.process_input().unwrap();
             assert_eq!(app.stack, vec![1.0]);
 
             app.input = String::from("acos");
-            app.process_input();
+            app.process_input().unwrap();
             assert_eq!(app.stack, vec![0.0]);
         }
 
@@ -671,11 +698,11 @@ mod tests {
         fn arctangent() {
             let mut app = App::new();
             app.input = String::from("1");
-            app.process_input();
+            app.process_input().unwrap();
             assert_eq!(app.stack, vec![1.0]);
 
             app.input = String::from("atan");
-            app.process_input();
+            app.process_input().unwrap();
             assert_eq!(app.stack, vec![0.7853981633974483]); // ~π/4
         }
 
@@ -683,11 +710,11 @@ mod tests {
         fn degrees_conversion() {
             let mut app = App::new();
             app.input = String::from("3.141592653589793"); // π
-            app.process_input();
+            app.process_input().unwrap();
             assert_eq!(app.stack, vec![3.141592653589793]);
 
             app.input = String::from("deg");
-            app.process_input();
+            app.process_input().unwrap();
             assert_eq!(app.stack, vec![180.0]);
         }
 
@@ -695,11 +722,11 @@ mod tests {
         fn radians_conversion() {
             let mut app = App::new();
             app.input = String::from("180");
-            app.process_input();
+            app.process_input().unwrap();
             assert_eq!(app.stack, vec![180.0]);
 
             app.input = String::from("rad");
-            app.process_input();
+            app.process_input().unwrap();
             assert_eq!(app.stack, vec![3.141592653589793]); // ~π
         }
 
@@ -707,11 +734,11 @@ mod tests {
         fn factorial() {
             let mut app = App::new();
             app.input = String::from("5");
-            app.process_input();
+            app.process_input().unwrap();
             assert_eq!(app.stack, vec![5.0]);
 
             app.input = String::from("!");
-            app.process_input();
+            app.process_input().unwrap();
             assert_eq!(app.stack, vec![120.0]);
         }
 
@@ -719,11 +746,11 @@ mod tests {
         fn reciprocal() {
             let mut app = App::new();
             app.input = String::from("4");
-            app.process_input();
+            app.process_input().unwrap();
             assert_eq!(app.stack, vec![4.0]);
 
             app.input = String::from("recip");
-            app.process_input();
+            app.process_input().unwrap();
             assert_eq!(app.stack, vec![0.25]);
         }
 
@@ -731,11 +758,11 @@ mod tests {
         fn log_base_10() {
             let mut app = App::new();
             app.input = String::from("100");
-            app.process_input();
+            app.process_input().unwrap();
             assert_eq!(app.stack, vec![100.0]);
 
             app.input = String::from("log10");
-            app.process_input();
+            app.process_input().unwrap();
             assert_eq!(app.stack, vec![2.0]);
         }
 
@@ -743,11 +770,11 @@ mod tests {
         fn log_base_natural() {
             let mut app = App::new();
             app.input = String::from("2.718281828459045"); // e
-            app.process_input();
+            app.process_input().unwrap();
             assert_eq!(app.stack, vec![2.718281828459045]);
 
             app.input = String::from("logn");
-            app.process_input();
+            app.process_input().unwrap();
             assert_eq!(app.stack, vec![1.0]);
         }
 
@@ -755,11 +782,11 @@ mod tests {
         fn log_base_2() {
             let mut app = App::new();
             app.input = String::from("8");
-            app.process_input();
+            app.process_input().unwrap();
             assert_eq!(app.stack, vec![8.0]);
 
             app.input = String::from("log2");
-            app.process_input();
+            app.process_input().unwrap();
             assert_eq!(app.stack, vec![3.0]);
         }
 
@@ -767,12 +794,12 @@ mod tests {
         fn swap() {
             let mut app = App::new();
             app.input = String::from("10");
-            app.process_input();
+            app.process_input().unwrap();
             app.input = String::from("5");
-            app.process_input();
+            app.process_input().unwrap();
 
             app.input = String::from("swap");
-            app.process_input();
+            app.process_input().unwrap();
             assert_eq!(app.stack, vec![5.0, 10.0]);
         }
 
@@ -780,12 +807,12 @@ mod tests {
         fn clear() {
             let mut app = App::new();
             app.input = String::from("10");
-            app.process_input();
+            app.process_input().unwrap();
             app.input = String::from("5");
-            app.process_input();
+            app.process_input().unwrap();
 
             app.input = String::from("clear");
-            app.process_input();
+            app.process_input().unwrap();
             assert_eq!(app.stack, vec![]);
         }
 
@@ -793,12 +820,12 @@ mod tests {
         fn drop() {
             let mut app = App::new();
             app.input = String::from("10");
-            app.process_input();
+            app.process_input().unwrap();
             app.input = String::from("5");
-            app.process_input();
+            app.process_input().unwrap();
 
             app.input = String::from("drop");
-            app.process_input();
+            app.process_input().unwrap();
             assert_eq!(app.stack, vec![10.0]);
         }
 
@@ -808,27 +835,27 @@ mod tests {
 
             // Push 3.0 to the stack
             app.input = String::from("3");
-            app.process_input();
+            app.process_input().unwrap();
             assert_eq!(app.stack, vec![3.0]);
 
             // Push 7.0 to the stack
             app.input = String::from("7");
-            app.process_input();
+            app.process_input().unwrap();
             assert_eq!(app.stack, vec![3.0, 7.0]);
 
             // Perform addition
             app.input = String::from("+");
-            app.process_input();
+            app.process_input().unwrap();
             assert_eq!(app.stack, vec![10.0]);
 
             // Undo the addition
             app.input = String::from("undo");
-            app.process_input();
+            app.process_input().unwrap();
             assert_eq!(app.stack, vec![3.0, 7.0]);
 
             // Redo the addition
             app.input = String::from("redo");
-            app.process_input();
+            app.process_input().unwrap();
             assert_eq!(app.stack, vec![10.0]);
         }
 
@@ -836,7 +863,7 @@ mod tests {
         fn push_infinity() {
             let mut app = App::new();
             app.input = String::from("inf");
-            app.process_input();
+            app.process_input().unwrap();
             assert_eq!(app.stack, vec![f64::INFINITY])
         }
 
@@ -844,7 +871,7 @@ mod tests {
         fn push_pi() {
             let mut app = App::new();
             app.input = String::from("pi");
-            app.process_input();
+            app.process_input().unwrap();
             assert_eq!(app.stack, vec![f64::consts::PI])
         }
 
@@ -852,7 +879,7 @@ mod tests {
         fn quit() {
             let mut app = App::new();
             app.input = String::from("quit");
-            assert!(!app.process_input());
+            assert!(!app.process_input().unwrap());
         }
     }
 
