@@ -107,11 +107,12 @@ impl App {
         self.character_index = 0;
     }
 
-    fn process_input(&mut self) {
+    fn process_input(&mut self) -> bool {
         if let Ok(num) = self.input.parse::<f64>() {
             self.push_number(num);
         } else {
             match self.input.as_str() {
+                "quit" => return false,
                 "+" => self.perform_operation(|a, b| a + b),
                 "-" => self.perform_operation(|a, b| a - b),
                 "/" => self.perform_operation(|a, b| a / b),
@@ -147,6 +148,7 @@ impl App {
         }
         self.input.clear();
         self.reset_cursor();
+        true
     }
 
     fn run(mut self, mut terminal: DefaultTerminal) -> Result<()> {
@@ -165,7 +167,11 @@ impl App {
                         _ => {}
                     },
                     InputMode::Editing if key.kind == KeyEventKind::Press => match key.code {
-                        KeyCode::Enter => self.process_input(),
+                        KeyCode::Enter => {
+                            if !self.process_input() {
+                                return Ok(());
+                            }
+                        }
                         KeyCode::Char(to_insert) => self.enter_char(to_insert),
                         KeyCode::Backspace => self.delete_char(),
                         KeyCode::Left => self.move_cursor_left(),
@@ -265,6 +271,7 @@ impl App {
             ("Stack", &["swap", "clear", "drop", "clone (empty)"]),
             ("History", &["undo", "redo"]),
             ("Constants", &["inf", "pi"]),
+            ("Program", &["quit"]),
         ];
 
         let mut lines = Vec::new();
@@ -839,6 +846,13 @@ mod tests {
             app.input = String::from("pi");
             app.process_input();
             assert_eq!(app.stack, vec![f64::consts::PI])
+        }
+
+        #[test]
+        fn quit() {
+            let mut app = App::new();
+            app.input = String::from("quit");
+            assert!(!app.process_input());
         }
     }
 
