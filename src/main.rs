@@ -254,25 +254,37 @@ impl App {
         frame.render_widget(stack, stack_area);
 
         let operations = [
-            // Binary
-            "+", "-", "*", "/", "%", "^",
-            // Unary
-            "neg", "abs", "sqrt", "sin", "cos", "tan", "asin", "acos", "atan", "deg", "rad", "!",
-            "recip", "log10", "logn", "log2",
-            // Stack
-            "swap", "clear", "drop", "clone (empty)",
-            // History
-            "undo", "redo",
-            // Constants
-            "inf", "pi",
+            ("Binary", &["+", "-", "*", "/", "%", "^"] as &[_]),
+            (
+                "Unary",
+                &[
+                    "neg", "abs", "sqrt", "sin", "cos", "tan", "asin", "acos", "atan", "deg",
+                    "rad", "!", "recip", "log10", "logn", "log2",
+                ],
+            ),
+            ("Stack", &["swap", "clear", "drop", "clone (empty)"]),
+            ("History", &["undo", "redo"]),
+            ("Constants", &["inf", "pi"]),
         ];
-        let op_items: Vec<ListItem> = operations
-            .iter()
-            .map(|op| ListItem::new(Line::from(Span::raw(*op))))
-            .collect();
-        let operations_list =
-            List::new(op_items).block(Block::bordered().title("Operations Guide"));
-        frame.render_widget(operations_list, operations_area);
+
+        let mut lines = Vec::new();
+        for (category, ops) in &operations {
+            lines.push(Line::from(Span::styled(
+                *category,
+                Style::default()
+                    .add_modifier(Modifier::BOLD)
+                    .add_modifier(Modifier::UNDERLINED),
+            )));
+            for op_chunk in ops.chunks(6) {
+                lines.push(Line::from(format!("  {}", op_chunk.join(" "))));
+            }
+            lines.push(Line::from("")); // empty line for spacing
+        }
+
+        let op_text = Text::from(lines);
+        let operations_guide =
+            Paragraph::new(op_text).block(Block::bordered().title("Operations Guide"));
+        frame.render_widget(operations_guide, operations_area);
     }
 
     fn push_number(&mut self, num: f64) {
