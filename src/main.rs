@@ -236,6 +236,10 @@ impl App {
             )),
         }
 
+        let horizontal =
+            Layout::horizontal([Constraint::Percentage(50), Constraint::Percentage(50)]);
+        let [stack_area, operations_area] = horizontal.areas(messages_area);
+
         let stack: Vec<ListItem> = self
             .stack
             .iter()
@@ -247,7 +251,28 @@ impl App {
             })
             .collect();
         let stack = List::new(stack).block(Block::bordered().title("Stack"));
-        frame.render_widget(stack, messages_area);
+        frame.render_widget(stack, stack_area);
+
+        let operations = [
+            // Binary
+            "+", "-", "*", "/", "%", "^",
+            // Unary
+            "neg", "abs", "sqrt", "sin", "cos", "tan", "asin", "acos", "atan", "deg", "rad", "!",
+            "recip", "log10", "logn", "log2",
+            // Stack
+            "swap", "clear", "drop", "clone (empty)",
+            // History
+            "undo", "redo",
+            // Constants
+            "inf", "pi",
+        ];
+        let op_items: Vec<ListItem> = operations
+            .iter()
+            .map(|op| ListItem::new(Line::from(Span::raw(*op))))
+            .collect();
+        let operations_list =
+            List::new(op_items).block(Block::bordered().title("Operations Guide"));
+        frame.render_widget(operations_list, operations_area);
     }
 
     fn push_number(&mut self, num: f64) {
