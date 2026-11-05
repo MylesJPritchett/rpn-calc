@@ -226,6 +226,8 @@ impl Calculator {
             Kind::Constant(value) => self.change(|stack| stack.push(value)),
             Kind::Swap => self.change(|stack| stack.swap(len - 1, len - 2)),
             Kind::Duplicate => self.change(|stack| stack.push(stack[len - 1])),
+            // Clearing an empty Stack changes nothing, so it records no Snapshot.
+            Kind::Clear if len == 0 => {}
             Kind::Clear => self.change(Vec::clear),
             Kind::Drop => self.change(|stack| {
                 stack.pop();
@@ -454,6 +456,13 @@ mod tests {
                 Err(CalcError::NotEnoughOperands { op, needed, have })
             );
         }
+    }
+
+    #[test]
+    fn clear_on_an_empty_stack_records_nothing() {
+        let mut calc = Calculator::new();
+        calc.execute("clear").unwrap();
+        assert_eq!(calc.execute("undo"), Err(CalcError::NothingToUndo));
     }
 
     #[test]
