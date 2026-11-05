@@ -16,7 +16,7 @@ There's no live demo: it's a terminal app, so you run it locally (see [Getting s
 - `undo` and `redo` for any change to the stack.
 - Constants `pi` and `inf`.
 - An Operations Guide panel next to the stack lists every command by category, so you don't need to memorise them.
-- The stack is saved to `stack.txt` after every command and reloaded on start, so your work survives quitting.
+- The stack is saved after every command and reloaded on start, so your work survives quitting.
 
 Index `0` in the Stack panel is the top of the stack. Operations with too few operands do nothing, and unknown input is ignored.
 
@@ -44,7 +44,7 @@ Requires a stable Rust toolchain ([rustup](https://rustup.rs)).
 cargo run --release
 ```
 
-The app starts in editing mode. Press Enter to submit, Esc to leave editing mode, then `e` to edit again or `q` to quit. Typing `quit` also exits. `stack.txt` is read from and written to the current directory.
+The app starts in editing mode. Press Enter to submit, Esc to leave editing mode, then `e` to edit again or `q` to quit. Typing `quit` also exits. The stack is kept in `rpn-calc/stack.txt` in your platform data directory (`$XDG_DATA_HOME` or `~/.local/share` on Linux, `~/Library/Application Support` on macOS, `%APPDATA%` on Windows), so it's the same wherever you launch the app from. If the platform has no data directory, `stack.txt` in the current directory is used instead.
 
 ## Testing
 
