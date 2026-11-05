@@ -1,5 +1,5 @@
 use std::fs::{self, File};
-use std::io::{self, BufRead, BufReader, BufWriter, Write};
+use std::io::{self, BufWriter, Write};
 use std::path::{Path, PathBuf};
 
 const APP_DIR: &str = "rpn-calc";
@@ -18,17 +18,18 @@ fn stack_path_in(data_dir: Option<PathBuf>) -> PathBuf {
     }
 }
 
-/// Loads one Value per line, skipping lines that don't parse. A missing file is an empty Stack.
+/// Loads one Value per line, skipping lines that aren't valid UTF-8 or don't parse.
+/// A missing file is an empty Stack.
 pub fn load(path: &Path) -> io::Result<Vec<f64>> {
-    let file = match File::open(path) {
-        Ok(file) => file,
+    let bytes = match fs::read(path) {
+        Ok(bytes) => bytes,
         Err(e) if e.kind() == io::ErrorKind::NotFound => return Ok(Vec::new()),
         Err(e) => return Err(e),
     };
-    Ok(BufReader::new(file)
-        .lines()
-        .map_while(Result::ok)
-        .filter_map(|line| line.parse::<f64>().ok())
+    Ok(bytes
+        .split(|&byte| byte == b'\n')
+        .filter_map(|line| std::str::from_utf8(line).ok())
+        .filter_map(|line| line.trim_end_matches('\r').parse::<f64>().ok())
         .collect())
 }
 
@@ -73,6 +74,14 @@ mod tests {
         let path = dir.path().join("stack.txt");
         std::fs::write(&path, "1\nnot a number\n\n2.5\n").unwrap();
         assert_eq!(load(&path).unwrap(), vec![1.0, 2.5]);
+    }
+
+    #[test]
+    fn invalid_utf8_lines_are_skipped_without_losing_later_values() {
+        let dir = tempdir().unwrap();
+        let path = dir.path().join("stack.txt");
+        std::fs::write(&path, b"1\n\xff\xfe\n2.5\n3\n").unwrap();
+        assert_eq!(load(&path).unwrap(), vec![1.0, 2.5, 3.0]);
     }
 
     #[test]
