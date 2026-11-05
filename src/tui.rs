@@ -31,7 +31,11 @@ enum InputMode {
 
 impl App {
     pub fn new() -> Self {
-        let stack_path = persistence::default_path();
+        Self::with_stack_path(persistence::default_path())
+    }
+
+    /// Loads the Stack from `stack_path` and saves it there after every change.
+    pub fn with_stack_path(stack_path: PathBuf) -> Self {
         let stack = persistence::load(&stack_path).unwrap_or_default();
         Self {
             calculator: Calculator::with_stack(stack),
@@ -191,16 +195,6 @@ fn operations_guide() -> Text<'static> {
 mod tests {
     use super::*;
 
-    fn app_saving_to(stack_path: PathBuf) -> App {
-        App {
-            calculator: Calculator::new(),
-            stack_path,
-            input: InputLine::default(),
-            input_mode: InputMode::Editing,
-            status: None,
-        }
-    }
-
     fn submit(app: &mut App, text: &str) -> Outcome {
         text.chars().for_each(|c| app.input.insert(c));
         app.submit()
@@ -209,8 +203,10 @@ mod tests {
     #[test]
     fn failed_save_shows_a_status_message_and_the_session_continues() {
         let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("stack.txt");
+        let mut app = App::with_stack_path(path.clone());
         // A directory can't be opened as a file, so saving to it fails.
-        let mut app = app_saving_to(dir.path().to_path_buf());
+        std::fs::create_dir(&path).unwrap();
 
         assert_eq!(submit(&mut app, "5"), Outcome::Continue);
         let status = app.status.as_deref().unwrap_or_default();
