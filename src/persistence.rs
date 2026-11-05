@@ -1,4 +1,4 @@
-use std::fs::File;
+use std::fs::{self, File};
 use std::io::{self, BufRead, BufReader, BufWriter, Write};
 use std::path::{Path, PathBuf};
 
@@ -22,7 +22,11 @@ pub fn load(path: &Path) -> io::Result<Vec<f64>> {
         .collect())
 }
 
+/// Writes one Value per line, creating the parent directory if it doesn't exist.
 pub fn save(path: &Path, stack: &[f64]) -> io::Result<()> {
+    if let Some(parent) = path.parent() {
+        fs::create_dir_all(parent)?;
+    }
     let mut file = BufWriter::new(File::create(path)?);
     for value in stack {
         writeln!(file, "{value}")?;
@@ -68,6 +72,14 @@ mod tests {
         save(&path, &[1.0, 2.0]).unwrap();
         save(&path, &[3.0]).unwrap();
         assert_eq!(load(&path).unwrap(), vec![3.0]);
+    }
+
+    #[test]
+    fn save_creates_missing_parent_directories() {
+        let dir = tempdir().unwrap();
+        let path = dir.path().join("nested").join("rpn-calc").join("stack.txt");
+        save(&path, &[4.0, 2.0]).unwrap();
+        assert_eq!(load(&path).unwrap(), vec![4.0, 2.0]);
     }
 
     #[test]
