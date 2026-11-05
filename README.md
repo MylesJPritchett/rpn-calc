@@ -12,7 +12,7 @@ There's no live demo: it's a terminal app, so you run it locally (see [Getting s
 - Type a number and press Enter to push it, or type an operation and press Enter to apply it to the stack.
 - Binary operations: `+ - * / % ^`.
 - Unary operations: `neg abs sqrt`, trig (`sin cos tan asin acos atan`), `deg`/`rad` conversion, `!`, `recip`, `log10 logn log2`.
-- Stack commands: `swap`, `drop`, `clear`, and Enter on an empty line to duplicate the top value.
+- Stack commands: `swap`, `drop`, `clear`, and `dup` (or Enter on an empty line) to duplicate the top value.
 - `undo` and `redo` for any change to the stack.
 - Constants `pi` and `inf`.
 - An Operations Guide panel next to the stack lists every command by category, so you don't need to memorise them.

@@ -57,7 +57,7 @@ impl Operation {
     /// The name shown in the Operations Guide.
     pub fn label(&self) -> &'static str {
         match self.kind {
-            Kind::Duplicate => "clone (empty)",
+            Kind::Duplicate => "dup (empty)",
             _ => self.name,
         }
     }
@@ -97,7 +97,7 @@ pub static OPERATIONS: &[Operation] = &[
     op("swap", Category::Stack, Kind::Swap),
     op("clear", Category::Stack, Kind::Clear),
     op("drop", Category::Stack, Kind::Drop),
-    op("", Category::Stack, Kind::Duplicate),
+    op("dup", Category::Stack, Kind::Duplicate),
     op("undo", Category::History, Kind::Undo),
     op("redo", Category::History, Kind::Redo),
     op("inf", Category::Constants, Kind::Constant(f64::INFINITY)),
@@ -105,7 +105,9 @@ pub static OPERATIONS: &[Operation] = &[
     op("quit", Category::Program, Kind::Quit),
 ];
 
+/// Looks up an Operation by name. Empty input is an alias for `dup`.
 pub fn lookup(name: &str) -> Option<&'static Operation> {
+    let name = if name.is_empty() { "dup" } else { name };
     OPERATIONS.iter().find(|op| op.name == name)
 }
 
@@ -324,6 +326,7 @@ mod tests {
         assert_stack(&["10", "5", "clear"], &[]);
         assert_stack(&["10", "5", "drop"], &[10.0]);
         assert_stack(&["10", "2", ""], &[10.0, 2.0, 2.0]);
+        assert_stack(&["10", "2", "dup"], &[10.0, 2.0, 2.0]);
     }
 
     #[test]
@@ -331,6 +334,7 @@ mod tests {
         assert_stack(&["1", "swap"], &[1.0]);
         assert_stack(&["drop"], &[]);
         assert_stack(&[""], &[]);
+        assert_stack(&["dup"], &[]);
         assert_stack(&["clear"], &[]);
     }
 
@@ -420,7 +424,7 @@ mod tests {
         let commands = [
             "+", "-", "*", "/", "%", "^", "neg", "abs", "sqrt", "sin", "cos", "tan", "asin",
             "acos", "atan", "deg", "rad", "!", "recip", "log10", "logn", "log2", "swap", "clear",
-            "drop", "", "undo", "redo", "inf", "pi", "quit",
+            "drop", "dup", "undo", "redo", "inf", "pi", "quit",
         ];
         let mut table: Vec<_> = OPERATIONS.iter().map(|op| op.name).collect();
         let mut expected = commands.to_vec();
@@ -428,9 +432,19 @@ mod tests {
         expected.sort();
         assert_eq!(table, expected);
 
-        for name in ["foo", "dup", "exit", "q", "PI", "+ "] {
+        for name in ["foo", "exit", "q", "PI", "+ "] {
             assert!(!is_accepted(name), "{name:?}");
         }
+    }
+
+    #[test]
+    fn empty_input_is_accepted_as_duplicate() {
+        assert!(is_accepted(""));
+    }
+
+    #[test]
+    fn operations_guide_lists_dup() {
+        assert!(OPERATIONS.iter().any(|op| op.label().starts_with("dup")));
     }
 
     #[test]
