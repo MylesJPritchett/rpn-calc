@@ -1,3 +1,4 @@
+use std::borrow::Cow;
 use std::f64::consts::PI;
 use std::fmt;
 
@@ -81,14 +82,18 @@ impl Operation {
         self.kind.category()
     }
 
-    /// The name shown in the Operations Guide.
-    pub fn label(&self) -> &'static str {
-        match self.kind {
-            Kind::Duplicate => "dup (empty)",
-            _ => self.name,
+    /// The name shown in the Operations Guide, noting the Enter shortcut where there is one.
+    pub fn label(&self) -> Cow<'static, str> {
+        if self.name == EMPTY_INPUT_RUNS {
+            Cow::Owned(format!("{} (or Enter)", self.name))
+        } else {
+            Cow::Borrowed(self.name)
         }
     }
 }
+
+/// The Operation that submitting an empty line runs: pressing Enter Duplicates the Top.
+const EMPTY_INPUT_RUNS: &str = "dup";
 
 const fn operation(name: &'static str, kind: Kind) -> Operation {
     Operation { name, kind }
@@ -128,9 +133,13 @@ pub static OPERATIONS: &[Operation] = &[
     operation("quit", Kind::Quit),
 ];
 
-/// Looks up an Operation by name. Empty input is an alias for `dup`.
+/// Looks up an Operation by name. Empty input runs `EMPTY_INPUT_RUNS`.
 pub fn lookup(name: &str) -> Option<&'static Operation> {
-    let name = if name.is_empty() { "dup" } else { name };
+    let name = if name.is_empty() {
+        EMPTY_INPUT_RUNS
+    } else {
+        name
+    };
     OPERATIONS.iter().find(|operation| operation.name == name)
 }
 
@@ -603,10 +612,13 @@ mod tests {
     }
 
     #[test]
-    fn operations_guide_lists_dup() {
-        assert!(OPERATIONS
+    fn operations_guide_lists_dup_with_its_enter_shortcut() {
+        let labels: Vec<String> = OPERATIONS
             .iter()
-            .any(|operation| operation.label().starts_with("dup")));
+            .map(|operation| operation.label().to_string())
+            .collect();
+        assert!(labels.contains(&"dup (or Enter)".to_string()), "{labels:?}");
+        assert!(labels.contains(&"swap".to_string()), "{labels:?}");
     }
 
     #[test]

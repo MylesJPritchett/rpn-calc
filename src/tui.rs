@@ -193,7 +193,7 @@ fn operations_guide() -> Text<'static> {
     let mut lines = Vec::new();
     for category in Category::ALL {
         lines.push(Line::from(Span::styled(category.label(), heading)));
-        let labels: Vec<&str> = OPERATIONS
+        let labels: Vec<_> = OPERATIONS
             .iter()
             .filter(|operation| operation.category() == category)
             .map(|operation| operation.label())
