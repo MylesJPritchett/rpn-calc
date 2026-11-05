@@ -1,7 +1,5 @@
-# Generates docs/screenshot.png and docs/demo.gif.
+# Generates docs/screenshot.png.
 # Run from the repo root: vhs docs/demo.tape
-
-Output docs/demo.gif
 
 Require cargo
 
