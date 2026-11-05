@@ -47,7 +47,10 @@ mod tests {
     #[test]
     fn missing_file_loads_as_empty_stack() {
         let dir = tempdir().unwrap();
-        assert_eq!(load(&dir.path().join("missing.txt")).unwrap(), Vec::<f64>::new());
+        assert_eq!(
+            load(&dir.path().join("missing.txt")).unwrap(),
+            Vec::<f64>::new()
+        );
     }
 
     #[test]
