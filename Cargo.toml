@@ -12,6 +12,7 @@ categories = ["command-line-utilities", "mathematics"]
 ratatui = "0.29.0"
 crossterm = "0.28.1"
 color-eyre = "0.6.3"
+dirs = "7.0.0"
 
 [dev-dependencies]
 tempfile = "3.27.0"

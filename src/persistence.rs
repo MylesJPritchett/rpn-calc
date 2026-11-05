@@ -2,10 +2,20 @@ use std::fs::{self, File};
 use std::io::{self, BufRead, BufReader, BufWriter, Write};
 use std::path::{Path, PathBuf};
 
+const APP_DIR: &str = "rpn-calc";
 const STACK_FILE: &str = "stack.txt";
 
+/// The Stack file in the platform data directory (e.g. `$XDG_DATA_HOME/rpn-calc/stack.txt`),
+/// or `stack.txt` in the current directory if the platform has no data directory.
 pub fn default_path() -> PathBuf {
-    PathBuf::from(STACK_FILE)
+    stack_path_in(dirs::data_dir())
+}
+
+fn stack_path_in(data_dir: Option<PathBuf>) -> PathBuf {
+    match data_dir {
+        Some(dir) => dir.join(APP_DIR).join(STACK_FILE),
+        None => PathBuf::from(STACK_FILE),
+    }
 }
 
 /// Loads one Value per line, skipping lines that don't parse. A missing file is an empty Stack.
@@ -83,7 +93,22 @@ mod tests {
     }
 
     #[test]
-    fn default_path_is_stack_txt_in_current_directory() {
-        assert_eq!(default_path(), PathBuf::from("stack.txt"));
+    fn default_path_is_in_the_platform_data_directory() {
+        let path = default_path();
+        assert!(path.is_absolute(), "{path:?} is not absolute");
+        assert!(path.ends_with("rpn-calc/stack.txt"), "{path:?}");
+    }
+
+    #[test]
+    fn stack_path_is_under_the_app_folder_in_the_data_directory() {
+        assert_eq!(
+            stack_path_in(Some(PathBuf::from("/data"))),
+            PathBuf::from("/data/rpn-calc/stack.txt")
+        );
+    }
+
+    #[test]
+    fn stack_path_falls_back_to_the_current_directory_without_a_data_directory() {
+        assert_eq!(stack_path_in(None), PathBuf::from("stack.txt"));
     }
 }
