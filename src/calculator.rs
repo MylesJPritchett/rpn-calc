@@ -56,16 +56,31 @@ impl Kind {
             _ => 0,
         }
     }
+
+    /// The Operations Guide category this kind of Operation belongs to.
+    pub fn category(self) -> Category {
+        match self {
+            Kind::Binary(_) => Category::Binary,
+            Kind::Unary(_) => Category::Unary,
+            Kind::Constant(_) => Category::Constant,
+            Kind::Swap | Kind::Clear | Kind::Drop | Kind::Duplicate => Category::Stack,
+            Kind::Undo | Kind::Redo => Category::History,
+            Kind::Quit => Category::Program,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy)]
 pub struct Operation {
     pub name: &'static str,
-    pub category: Category,
     pub kind: Kind,
 }
 
 impl Operation {
+    pub fn category(&self) -> Category {
+        self.kind.category()
+    }
+
     /// The name shown in the Operations Guide.
     pub fn label(&self) -> &'static str {
         match self.kind {
@@ -75,46 +90,42 @@ impl Operation {
     }
 }
 
-const fn operation(name: &'static str, category: Category, kind: Kind) -> Operation {
-    Operation {
-        name,
-        category,
-        kind,
-    }
+const fn operation(name: &'static str, kind: Kind) -> Operation {
+    Operation { name, kind }
 }
 
 pub static OPERATIONS: &[Operation] = &[
-    operation("+", Category::Binary, Kind::Binary(|a, b| a + b)),
-    operation("-", Category::Binary, Kind::Binary(|a, b| a - b)),
-    operation("*", Category::Binary, Kind::Binary(|a, b| a * b)),
-    operation("/", Category::Binary, Kind::Binary(|a, b| a / b)),
-    operation("%", Category::Binary, Kind::Binary(|a, b| a % b)),
-    operation("^", Category::Binary, Kind::Binary(f64::powf)),
-    operation("neg", Category::Unary, Kind::Unary(|a| -a)),
-    operation("abs", Category::Unary, Kind::Unary(f64::abs)),
-    operation("sqrt", Category::Unary, Kind::Unary(f64::sqrt)),
-    operation("sin", Category::Unary, Kind::Unary(f64::sin)),
-    operation("cos", Category::Unary, Kind::Unary(f64::cos)),
-    operation("tan", Category::Unary, Kind::Unary(f64::tan)),
-    operation("asin", Category::Unary, Kind::Unary(f64::asin)),
-    operation("acos", Category::Unary, Kind::Unary(f64::acos)),
-    operation("atan", Category::Unary, Kind::Unary(f64::atan)),
-    operation("deg", Category::Unary, Kind::Unary(f64::to_degrees)),
-    operation("rad", Category::Unary, Kind::Unary(f64::to_radians)),
-    operation("!", Category::Unary, Kind::Unary(factorial)),
-    operation("recip", Category::Unary, Kind::Unary(|a| 1.0 / a)),
-    operation("log10", Category::Unary, Kind::Unary(f64::log10)),
-    operation("logn", Category::Unary, Kind::Unary(f64::ln)),
-    operation("log2", Category::Unary, Kind::Unary(f64::log2)),
-    operation("swap", Category::Stack, Kind::Swap),
-    operation("clear", Category::Stack, Kind::Clear),
-    operation("drop", Category::Stack, Kind::Drop),
-    operation("dup", Category::Stack, Kind::Duplicate),
-    operation("undo", Category::History, Kind::Undo),
-    operation("redo", Category::History, Kind::Redo),
-    operation("inf", Category::Constant, Kind::Constant(f64::INFINITY)),
-    operation("pi", Category::Constant, Kind::Constant(PI)),
-    operation("quit", Category::Program, Kind::Quit),
+    operation("+", Kind::Binary(|a, b| a + b)),
+    operation("-", Kind::Binary(|a, b| a - b)),
+    operation("*", Kind::Binary(|a, b| a * b)),
+    operation("/", Kind::Binary(|a, b| a / b)),
+    operation("%", Kind::Binary(|a, b| a % b)),
+    operation("^", Kind::Binary(f64::powf)),
+    operation("neg", Kind::Unary(|a| -a)),
+    operation("abs", Kind::Unary(f64::abs)),
+    operation("sqrt", Kind::Unary(f64::sqrt)),
+    operation("sin", Kind::Unary(f64::sin)),
+    operation("cos", Kind::Unary(f64::cos)),
+    operation("tan", Kind::Unary(f64::tan)),
+    operation("asin", Kind::Unary(f64::asin)),
+    operation("acos", Kind::Unary(f64::acos)),
+    operation("atan", Kind::Unary(f64::atan)),
+    operation("deg", Kind::Unary(f64::to_degrees)),
+    operation("rad", Kind::Unary(f64::to_radians)),
+    operation("!", Kind::Unary(factorial)),
+    operation("recip", Kind::Unary(|a| 1.0 / a)),
+    operation("log10", Kind::Unary(f64::log10)),
+    operation("logn", Kind::Unary(f64::ln)),
+    operation("log2", Kind::Unary(f64::log2)),
+    operation("swap", Kind::Swap),
+    operation("clear", Kind::Clear),
+    operation("drop", Kind::Drop),
+    operation("dup", Kind::Duplicate),
+    operation("undo", Kind::Undo),
+    operation("redo", Kind::Redo),
+    operation("inf", Kind::Constant(f64::INFINITY)),
+    operation("pi", Kind::Constant(PI)),
+    operation("quit", Kind::Quit),
 ];
 
 /// Looks up an Operation by name. Empty input is an alias for `dup`.
@@ -603,7 +614,7 @@ mod tests {
         for category in Category::ALL {
             assert!(OPERATIONS
                 .iter()
-                .any(|operation| operation.category == category));
+                .any(|operation| operation.category() == category));
         }
     }
 

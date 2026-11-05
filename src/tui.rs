@@ -195,7 +195,7 @@ fn operations_guide() -> Text<'static> {
         lines.push(Line::from(Span::styled(category.label(), heading)));
         let labels: Vec<&str> = OPERATIONS
             .iter()
-            .filter(|operation| operation.category == category)
+            .filter(|operation| operation.category() == category)
             .map(|operation| operation.label())
             .collect();
         for chunk in labels.chunks(6) {

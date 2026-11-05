@@ -6,7 +6,7 @@ Dispatch used to be a hand-written `match`, and the Operations Guide was a separ
 
 ## Decision
 
-Every Operation is one entry in a static table (`OPERATIONS` in `src/calculator.rs`) with its name, its category and its kind, e.g. `Binary(fn)`, `Unary(fn)`, `Constant(value)` or `Swap`. `Calculator::execute` looks the input up in the table and checks the operand count from the kind before applying it. The TUI renders the Operations Guide by grouping the same table by category.
+Every Operation is one entry in a static table (`OPERATIONS` in `src/calculator.rs`) with its name and its kind, e.g. `Binary(fn)`, `Unary(fn)`, `Constant(value)` or `Swap`. `Calculator::execute` looks the input up in the table and checks the operand count from the kind before applying it. Each kind also knows its category, so the TUI renders the Operations Guide by grouping the same table by category without a separate field that could disagree with the kind.
 
 ## Consequences
 
