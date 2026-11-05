@@ -175,14 +175,10 @@ impl Calculator {
             Kind::Constant(value) => self.change(|stack| stack.push(value)),
             Kind::Swap if len >= 2 => self.change(|stack| stack.swap(len - 1, len - 2)),
             Kind::Duplicate if len >= 1 => self.change(|stack| stack.push(stack[len - 1])),
-            Kind::Clear => {
-                self.undo.push(self.stack.clone());
-                self.stack.clear();
-            }
-            Kind::Drop if len >= 1 => {
-                self.undo.push(self.stack.clone());
-                self.stack.pop();
-            }
+            Kind::Clear => self.change(Vec::clear),
+            Kind::Drop if len >= 1 => self.change(|stack| {
+                stack.pop();
+            }),
             Kind::Undo => {
                 if let Some(previous) = self.undo.pop() {
                     self.redo.push(std::mem::replace(&mut self.stack, previous));
@@ -350,6 +346,16 @@ mod tests {
     #[test]
     fn a_new_change_clears_redo() {
         assert_stack(&["3", "7", "+", "undo", "1", "redo"], &[3.0, 7.0, 1.0]);
+    }
+
+    #[test]
+    fn clear_clears_redo() {
+        assert_stack(&["3", "7", "+", "undo", "clear", "redo"], &[]);
+    }
+
+    #[test]
+    fn drop_clears_redo() {
+        assert_stack(&["3", "7", "+", "undo", "drop", "redo"], &[3.0]);
     }
 
     #[test]
