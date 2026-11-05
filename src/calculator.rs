@@ -77,7 +77,7 @@ pub static OPERATIONS: &[Operation] = &[
     op("*", Category::Binary, Kind::Binary(|a, b| a * b)),
     op("/", Category::Binary, Kind::Binary(|a, b| a / b)),
     op("%", Category::Binary, Kind::Binary(|a, b| a % b)),
-    op("^", Category::Binary, Kind::Binary(|a, b| b.powf(a))),
+    op("^", Category::Binary, Kind::Binary(f64::powf)),
     op("neg", Category::Unary, Kind::Unary(|a| -a)),
     op("abs", Category::Unary, Kind::Unary(f64::abs)),
     op("sqrt", Category::Unary, Kind::Unary(f64::sqrt)),
@@ -229,9 +229,9 @@ mod tests {
     }
 
     #[test]
-    fn exponent_raises_top_to_second_value() {
-        assert_stack(&["2", "3", "^"], &[9.0]);
-        assert_stack(&["4", "5", "^"], &[625.0]);
+    fn exponent_raises_second_value_to_top() {
+        assert_stack(&["2", "3", "^"], &[8.0]);
+        assert_stack(&["4", "5", "^"], &[1024.0]);
     }
 
     #[test]
