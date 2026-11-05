@@ -10,3 +10,6 @@ color-eyre = "0.6.3"
 
 [workspace.metadata.clippy]
 warnings = ["clippy::all"]
+
+[dev-dependencies]
+tempfile = "3.27.0"
