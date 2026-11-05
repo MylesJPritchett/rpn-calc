@@ -109,13 +109,18 @@ pub fn lookup(name: &str) -> Option<&'static Operation> {
     OPERATIONS.iter().find(|op| op.name == name)
 }
 
+/// 171! and above overflow `f64`.
+const MAX_FACTORIAL: f64 = 170.0;
+
 fn factorial(a: f64) -> f64 {
-    let n = a.abs().round() as u64;
-    let mut result = 1.0;
-    for i in 1..=n {
-        result *= i as f64;
+    let n = a.abs().round();
+    if n.is_nan() {
+        return f64::NAN;
     }
-    result
+    if n > MAX_FACTORIAL {
+        return f64::INFINITY;
+    }
+    (1..=n as u64).map(|i| i as f64).product()
 }
 
 /// What the caller should do after an input has been executed.
@@ -292,6 +297,23 @@ mod tests {
         calc.execute("!");
         assert_eq!(calc.stack(), &[7.257415615307994e306]);
         assert_stack(&["171", "!"], &[f64::INFINITY]);
+    }
+
+    #[test]
+    fn factorial_of_huge_or_infinite_values_is_infinity() {
+        assert_stack(&["inf", "!"], &[f64::INFINITY]);
+        assert_stack(&["1e20", "!"], &[f64::INFINITY]);
+        assert_stack(&["170.6", "!"], &[f64::INFINITY]);
+    }
+
+    #[test]
+    fn factorial_of_nan_is_nan() {
+        let mut calc = Calculator::new();
+        for input in ["inf", "inf", "-", "!"] {
+            calc.execute(input);
+        }
+        assert_eq!(calc.stack().len(), 1);
+        assert!(calc.stack()[0].is_nan());
     }
 
     #[test]
