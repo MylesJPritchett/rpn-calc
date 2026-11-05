@@ -1,8 +1,9 @@
 # rpn-calc
 
+[![CI](https://github.com/MylesJPritchett/rpn-calc/actions/workflows/ci.yml/badge.svg)](https://github.com/MylesJPritchett/rpn-calc/actions/workflows/ci.yml)
+
 A Reverse Polish Notation calculator for the terminal, for people who'd rather type `3 7 +` than reach for a GUI calculator. Built in Rust with ratatui.
 
-<!-- Screenshot: see the note below this README for what to capture. -->
 ![rpn-calc in a terminal](docs/screenshot.png)
 
 There's no live demo: it's a terminal app, so you run it locally (see [Getting started](#getting-started)).
@@ -10,7 +11,7 @@ There's no live demo: it's a terminal app, so you run it locally (see [Getting s
 ## What it does
 
 - Type a number and press Enter to push it, or type an operation and press Enter to apply it to the stack.
-- Binary operations: `+ - * / % ^`.
+- Binary operations: `+ - * / % ^`. The second value is the left-hand side, so `2 3 ^` is 8, as on HP calculators and `dc`.
 - Unary operations: `neg abs sqrt`, trig (`sin cos tan asin acos atan`), `deg`/`rad` conversion, `!`, `recip`, `log10 logn log2`.
 - Stack commands: `swap`, `drop`, `clear`, and `dup` (or Enter on an empty line) to duplicate the top value.
 - `undo` and `redo` for any change to the stack.
@@ -18,22 +19,22 @@ There's no live demo: it's a terminal app, so you run it locally (see [Getting s
 - An Operations Guide panel next to the stack lists every command by category, so you don't need to memorise them.
 - The stack is saved after every command and reloaded on start, so your work survives quitting.
 
-Index `0` in the Stack panel is the top of the stack. Operations with too few operands do nothing, and unknown input is ignored.
+Index `0` in the Stack panel is the top of the stack. If a command can't run, a status line says why (`unknown command: foo`, `swap needs 2 values, stack has 1`) and clears on your next keypress. Maths results follow IEEE 754, so `10 0 /` gives `inf` rather than an error.
 
-## How it works
+## Design
 
-It's one binary (`src/main.rs`): an `App` struct holding the input line, the stack (`Vec<f64>`) and the undo/redo history, plus a draw function that ratatui calls every time a key is pressed. `process_input` parses the line as an `f64` first. If that fails, it matches the line against the command names.
+The calculator core (`src/calculator.rs`) is pure and UI-agnostic; persistence and the ratatui TUI sit around it. [`GLOSSARY.md`](GLOSSARY.md) defines the vocabulary.
 
-**Undo/redo stores whole-stack snapshots.** Each change pushes a clone of the current stack onto `undo` and clears `redo`, and `undo` swaps the current stack with the last snapshot. This makes every operation reversible without writing an inverse for each one, which matters for lossy operations like `clear`, `%` or `!`. The cost is O(stack size) memory per step, and the history is unbounded. That's fine for a calculator stack.
-
-**Operations are closures passed to two helpers.** `perform_operation` takes a `fn(f64, f64) -> f64` and `perform_single_operand_operation` takes a closure, so most commands are one line in the dispatch `match` (`"sqrt" => self.perform_single_operand_operation(|a| a.sqrt())`). The helpers handle the arity check, the undo snapshot and the pop/push, so the stack bookkeeping is written once and an empty stack can't cause a panic.
-
-**Factorial uses IEEE 754 rules like everything else.** `!` first multiplied in `u64`, which overflows at 21!. Multiplying in `f64` gives exact results up to 170! and `inf` beyond that, matching how the rest of the calculator handles out-of-range results (`10 0 /` gives `inf`, and there are edge-case tests for this). Inputs are rounded to the nearest whole number and negative inputs use their absolute value, so `!` doesn't attempt a gamma function.
+- [Undo/redo stores whole-stack snapshots](docs/adr/0001-snapshot-based-undo-redo.md), so every operation is reversible without writing an inverse for each one.
+- [Maths results follow IEEE 754 instead of erroring](docs/adr/0002-ieee-754-results-not-errors.md), including `!`, which gives `inf` above 170! instead of looping.
+- [One Operation table drives both dispatch and the Operations Guide](docs/adr/0003-single-operation-table.md), so adding an operation is one line and the guide can't drift.
+- [The stack is plain text in the platform data directory](docs/adr/0004-plain-text-stack-in-data-directory.md), so it's the same stack wherever you launch from.
 
 ## Stack
 
 - Rust (2021 edition)
 - [ratatui](https://ratatui.rs) for the UI and [crossterm](https://github.com/crossterm-rs/crossterm) for terminal input
+- [dirs](https://github.com/dirs-dev/dirs-rs) to find the platform data directory
 - [color-eyre](https://github.com/eyre-rs/color-eyre) for error reports
 
 ## Getting started
@@ -49,6 +50,8 @@ The app starts in editing mode. Press Enter to submit, Esc to leave editing mode
 ## Testing
 
 ```sh
-cargo test      # unit tests for parsing, every operation, undo/redo and float edge cases
-cargo clippy
+cargo test      # every operation, undo/redo, float edge cases, persistence and end-to-end sessions
+cargo clippy --all-targets -- -D warnings
 ```
+
+The tests drive the calculator through its public interface and use a temp directory for persistence, so they never touch your real stack. The screenshot is generated from [`docs/demo.tape`](docs/demo.tape) with [VHS](https://github.com/charmbracelet/vhs): `vhs docs/demo.tape`.
