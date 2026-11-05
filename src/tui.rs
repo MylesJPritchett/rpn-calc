@@ -137,7 +137,7 @@ impl App {
                     "Esc".bold(),
                     " to stop editing, ".into(),
                     "Enter".bold(),
-                    " to add the number to stack or perform operation".into(),
+                    " to push the Value or run the Operation".into(),
                 ],
                 Style::default(),
             ),
@@ -195,8 +195,8 @@ fn operations_guide() -> Text<'static> {
         lines.push(Line::from(Span::styled(category.label(), heading)));
         let labels: Vec<&str> = OPERATIONS
             .iter()
-            .filter(|op| op.category == category)
-            .map(|op| op.label())
+            .filter(|operation| operation.category == category)
+            .map(|operation| operation.label())
             .collect();
         for chunk in labels.chunks(6) {
             lines.push(Line::from(format!("  {}", chunk.join(" "))));

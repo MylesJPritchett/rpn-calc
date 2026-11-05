@@ -7,7 +7,7 @@ pub enum Category {
     Unary,
     Stack,
     History,
-    Constants,
+    Constant,
     Program,
 }
 
@@ -17,7 +17,7 @@ impl Category {
         Category::Unary,
         Category::Stack,
         Category::History,
-        Category::Constants,
+        Category::Constant,
         Category::Program,
     ];
 
@@ -27,7 +27,7 @@ impl Category {
             Category::Unary => "Unary",
             Category::Stack => "Stack",
             Category::History => "History",
-            Category::Constants => "Constants",
+            Category::Constant => "Constant",
             Category::Program => "Program",
         }
     }
@@ -75,7 +75,7 @@ impl Operation {
     }
 }
 
-const fn op(name: &'static str, category: Category, kind: Kind) -> Operation {
+const fn operation(name: &'static str, category: Category, kind: Kind) -> Operation {
     Operation {
         name,
         category,
@@ -84,43 +84,43 @@ const fn op(name: &'static str, category: Category, kind: Kind) -> Operation {
 }
 
 pub static OPERATIONS: &[Operation] = &[
-    op("+", Category::Binary, Kind::Binary(|a, b| a + b)),
-    op("-", Category::Binary, Kind::Binary(|a, b| a - b)),
-    op("*", Category::Binary, Kind::Binary(|a, b| a * b)),
-    op("/", Category::Binary, Kind::Binary(|a, b| a / b)),
-    op("%", Category::Binary, Kind::Binary(|a, b| a % b)),
-    op("^", Category::Binary, Kind::Binary(f64::powf)),
-    op("neg", Category::Unary, Kind::Unary(|a| -a)),
-    op("abs", Category::Unary, Kind::Unary(f64::abs)),
-    op("sqrt", Category::Unary, Kind::Unary(f64::sqrt)),
-    op("sin", Category::Unary, Kind::Unary(f64::sin)),
-    op("cos", Category::Unary, Kind::Unary(f64::cos)),
-    op("tan", Category::Unary, Kind::Unary(f64::tan)),
-    op("asin", Category::Unary, Kind::Unary(f64::asin)),
-    op("acos", Category::Unary, Kind::Unary(f64::acos)),
-    op("atan", Category::Unary, Kind::Unary(f64::atan)),
-    op("deg", Category::Unary, Kind::Unary(f64::to_degrees)),
-    op("rad", Category::Unary, Kind::Unary(f64::to_radians)),
-    op("!", Category::Unary, Kind::Unary(factorial)),
-    op("recip", Category::Unary, Kind::Unary(|a| 1.0 / a)),
-    op("log10", Category::Unary, Kind::Unary(f64::log10)),
-    op("logn", Category::Unary, Kind::Unary(f64::ln)),
-    op("log2", Category::Unary, Kind::Unary(f64::log2)),
-    op("swap", Category::Stack, Kind::Swap),
-    op("clear", Category::Stack, Kind::Clear),
-    op("drop", Category::Stack, Kind::Drop),
-    op("dup", Category::Stack, Kind::Duplicate),
-    op("undo", Category::History, Kind::Undo),
-    op("redo", Category::History, Kind::Redo),
-    op("inf", Category::Constants, Kind::Constant(f64::INFINITY)),
-    op("pi", Category::Constants, Kind::Constant(PI)),
-    op("quit", Category::Program, Kind::Quit),
+    operation("+", Category::Binary, Kind::Binary(|a, b| a + b)),
+    operation("-", Category::Binary, Kind::Binary(|a, b| a - b)),
+    operation("*", Category::Binary, Kind::Binary(|a, b| a * b)),
+    operation("/", Category::Binary, Kind::Binary(|a, b| a / b)),
+    operation("%", Category::Binary, Kind::Binary(|a, b| a % b)),
+    operation("^", Category::Binary, Kind::Binary(f64::powf)),
+    operation("neg", Category::Unary, Kind::Unary(|a| -a)),
+    operation("abs", Category::Unary, Kind::Unary(f64::abs)),
+    operation("sqrt", Category::Unary, Kind::Unary(f64::sqrt)),
+    operation("sin", Category::Unary, Kind::Unary(f64::sin)),
+    operation("cos", Category::Unary, Kind::Unary(f64::cos)),
+    operation("tan", Category::Unary, Kind::Unary(f64::tan)),
+    operation("asin", Category::Unary, Kind::Unary(f64::asin)),
+    operation("acos", Category::Unary, Kind::Unary(f64::acos)),
+    operation("atan", Category::Unary, Kind::Unary(f64::atan)),
+    operation("deg", Category::Unary, Kind::Unary(f64::to_degrees)),
+    operation("rad", Category::Unary, Kind::Unary(f64::to_radians)),
+    operation("!", Category::Unary, Kind::Unary(factorial)),
+    operation("recip", Category::Unary, Kind::Unary(|a| 1.0 / a)),
+    operation("log10", Category::Unary, Kind::Unary(f64::log10)),
+    operation("logn", Category::Unary, Kind::Unary(f64::ln)),
+    operation("log2", Category::Unary, Kind::Unary(f64::log2)),
+    operation("swap", Category::Stack, Kind::Swap),
+    operation("clear", Category::Stack, Kind::Clear),
+    operation("drop", Category::Stack, Kind::Drop),
+    operation("dup", Category::Stack, Kind::Duplicate),
+    operation("undo", Category::History, Kind::Undo),
+    operation("redo", Category::History, Kind::Redo),
+    operation("inf", Category::Constant, Kind::Constant(f64::INFINITY)),
+    operation("pi", Category::Constant, Kind::Constant(PI)),
+    operation("quit", Category::Program, Kind::Quit),
 ];
 
 /// Looks up an Operation by name. Empty input is an alias for `dup`.
 pub fn lookup(name: &str) -> Option<&'static Operation> {
     let name = if name.is_empty() { "dup" } else { name };
-    OPERATIONS.iter().find(|op| op.name == name)
+    OPERATIONS.iter().find(|operation| operation.name == name)
 }
 
 /// 171! and above overflow `f64`.
@@ -149,7 +149,7 @@ pub enum Outcome {
 pub enum CalcError {
     UnknownCommand(String),
     NotEnoughOperands {
-        op: &'static str,
+        operation: &'static str,
         needed: usize,
         have: usize,
     },
@@ -161,9 +161,13 @@ impl fmt::Display for CalcError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             CalcError::UnknownCommand(input) => write!(f, "unknown command: {input}"),
-            CalcError::NotEnoughOperands { op, needed, have } => {
+            CalcError::NotEnoughOperands {
+                operation,
+                needed,
+                have,
+            } => {
                 let values = if *needed == 1 { "value" } else { "values" };
-                write!(f, "{op} needs {needed} {values}, stack has {have}")
+                write!(f, "{operation} needs {needed} {values}, stack has {have}")
             }
             CalcError::NothingToUndo => write!(f, "nothing to undo"),
             CalcError::NothingToRedo => write!(f, "nothing to redo"),
@@ -208,7 +212,7 @@ impl Calculator {
         let needed = operation.kind.operands();
         if len < needed {
             return Err(CalcError::NotEnoughOperands {
-                op: operation.name,
+                operation: operation.name,
                 needed,
                 have: len,
             });
@@ -446,14 +450,18 @@ mod tests {
             (&[], "neg", 1, 0),
             (&[], "drop", 1, 0),
         ];
-        for (setup, op, needed, have) in cases {
+        for (setup, operation, needed, have) in cases {
             let mut calc = Calculator::new();
             for input in setup {
                 calc.execute(input).unwrap();
             }
             assert_eq!(
-                calc.execute(op),
-                Err(CalcError::NotEnoughOperands { op, needed, have })
+                calc.execute(operation),
+                Err(CalcError::NotEnoughOperands {
+                    operation,
+                    needed,
+                    have
+                })
             );
         }
     }
@@ -483,7 +491,7 @@ mod tests {
             ),
             (
                 CalcError::NotEnoughOperands {
-                    op: "swap",
+                    operation: "swap",
                     needed: 2,
                     have: 1,
                 },
@@ -491,7 +499,7 @@ mod tests {
             ),
             (
                 CalcError::NotEnoughOperands {
-                    op: "neg",
+                    operation: "neg",
                     needed: 1,
                     have: 0,
                 },
@@ -567,7 +575,7 @@ mod tests {
             "acos", "atan", "deg", "rad", "!", "recip", "log10", "logn", "log2", "swap", "clear",
             "drop", "dup", "undo", "redo", "inf", "pi", "quit",
         ];
-        let mut table: Vec<_> = OPERATIONS.iter().map(|op| op.name).collect();
+        let mut table: Vec<_> = OPERATIONS.iter().map(|operation| operation.name).collect();
         let mut expected = commands.to_vec();
         table.sort();
         expected.sort();
@@ -585,13 +593,17 @@ mod tests {
 
     #[test]
     fn operations_guide_lists_dup() {
-        assert!(OPERATIONS.iter().any(|op| op.label().starts_with("dup")));
+        assert!(OPERATIONS
+            .iter()
+            .any(|operation| operation.label().starts_with("dup")));
     }
 
     #[test]
     fn every_category_has_operations() {
         for category in Category::ALL {
-            assert!(OPERATIONS.iter().any(|op| op.category == category));
+            assert!(OPERATIONS
+                .iter()
+                .any(|operation| operation.category == category));
         }
     }
 

@@ -40,6 +40,10 @@ An Operation that pushes a fixed Value: `pi` or `inf`.
 **History command**:
 An Operation that moves through History: `undo` or `redo`.
 
+**Program command**:
+An Operation that acts on the program rather than the Stack: `quit`, which exits.
+_Avoid_: Exit command, system command
+
 **Duplicate**:
 To push a copy of the Top, with `dup` or by submitting an empty line.
 _Avoid_: Copy, repeat
@@ -57,7 +61,7 @@ _Avoid_: Log, journal, undo buffer
 ## Interface
 
 **Operations Guide**:
-The panel beside the Stack that lists every Operation by category.
+The panel beside the Stack that lists every Operation grouped by category: Binary (Binary Operations), Unary (Unary Operations), Stack (Stack commands), History (History commands), Constant (Constants) and Program (Program commands).
 _Avoid_: Help, cheat sheet, menu
 
 **Status message**:
