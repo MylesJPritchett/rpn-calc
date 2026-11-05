@@ -91,9 +91,9 @@ pub static OPERATIONS: &[Operation] = &[
     op("rad", Category::Unary, Kind::Unary(f64::to_radians)),
     op("!", Category::Unary, Kind::Unary(factorial)),
     op("recip", Category::Unary, Kind::Unary(|a| 1.0 / a)),
-    op("log10", Category::Unary, Kind::Unary(|a| a.log(10.0))),
+    op("log10", Category::Unary, Kind::Unary(f64::log10)),
     op("logn", Category::Unary, Kind::Unary(f64::ln)),
-    op("log2", Category::Unary, Kind::Unary(|a| a.log(2.0))),
+    op("log2", Category::Unary, Kind::Unary(f64::log2)),
     op("swap", Category::Stack, Kind::Swap),
     op("clear", Category::Stack, Kind::Clear),
     op("drop", Category::Stack, Kind::Drop),
@@ -265,11 +265,17 @@ mod tests {
         assert_stack(&["95", "rad"], &[1.6580627893946132]);
         assert_stack(&["4", "recip"], &[0.25]);
         assert_stack(&["100", "log10"], &[2.0]);
-        assert_stack(&["50", "log10"], &[1.6989700043360185]);
+        assert_stack(&["50", "log10"], &[1.6989700043360187]);
         assert_stack(&["2.718281828459045", "logn"], &[1.0]);
         assert_stack(&["50", "logn"], &[3.912023005428146]);
         assert_stack(&["8", "log2"], &[3.0]);
         assert_stack(&["50", "log2"], &[5.643856189774724]);
+    }
+
+    #[test]
+    fn logs_of_exact_powers_are_exact() {
+        assert_stack(&["1000", "log10"], &[3.0]);
+        assert_stack(&["8", "log2"], &[3.0]);
     }
 
     #[test]
