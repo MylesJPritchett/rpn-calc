@@ -58,7 +58,7 @@ impl App {
                     },
                     InputMode::Editing if key.kind == KeyEventKind::Press => match key.code {
                         KeyCode::Enter => {
-                            if self.submit()? == Outcome::Quit {
+                            if self.submit() == Outcome::Quit {
                                 return Ok(());
                             }
                         }
@@ -75,17 +75,19 @@ impl App {
         }
     }
 
-    fn submit(&mut self) -> Result<Outcome> {
+    fn submit(&mut self) -> Outcome {
         match self.calculator.execute(self.input.text()) {
-            Ok(Outcome::Quit) => Ok(Outcome::Quit),
+            Ok(Outcome::Quit) => Outcome::Quit,
             Ok(Outcome::Continue) => {
                 self.input.clear();
-                persistence::save(&self.stack_path, self.calculator.stack())?;
-                Ok(Outcome::Continue)
+                if let Err(error) = persistence::save(&self.stack_path, self.calculator.stack()) {
+                    self.status = Some(format!("couldn't save stack: {error}"));
+                }
+                Outcome::Continue
             }
             Err(error) => {
                 self.status = Some(error.to_string());
-                Ok(Outcome::Continue)
+                Outcome::Continue
             }
         }
     }
@@ -183,4 +185,38 @@ fn operations_guide() -> Text<'static> {
         lines.push(Line::from(""));
     }
     Text::from(lines)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn app_saving_to(stack_path: PathBuf) -> App {
+        App {
+            calculator: Calculator::new(),
+            stack_path,
+            input: InputLine::default(),
+            input_mode: InputMode::Editing,
+            status: None,
+        }
+    }
+
+    fn submit(app: &mut App, text: &str) -> Outcome {
+        text.chars().for_each(|c| app.input.insert(c));
+        app.submit()
+    }
+
+    #[test]
+    fn failed_save_shows_a_status_message_and_the_session_continues() {
+        let dir = tempfile::tempdir().unwrap();
+        // A directory can't be opened as a file, so saving to it fails.
+        let mut app = app_saving_to(dir.path().to_path_buf());
+
+        assert_eq!(submit(&mut app, "5"), Outcome::Continue);
+        let status = app.status.as_deref().unwrap_or_default();
+        assert!(status.starts_with("couldn't save stack: "), "{status:?}");
+
+        assert_eq!(submit(&mut app, "dup"), Outcome::Continue);
+        assert_eq!(app.calculator.stack(), &[5.0, 5.0]);
+    }
 }
