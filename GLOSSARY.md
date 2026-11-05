@@ -61,5 +61,5 @@ The panel beside the Stack that lists every Operation by category.
 _Avoid_: Help, cheat sheet, menu
 
 **Status message**:
-A one-line message saying why the last input did nothing, or that saving failed. It clears on the next keypress.
+A one-line message saying why the last input did nothing, or that loading or saving the Stack failed. It clears on the next keypress.
 _Avoid_: Error, toast, notification

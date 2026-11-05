@@ -18,7 +18,9 @@ use input_line::InputLine;
 
 pub struct App {
     calculator: Calculator,
-    stack_path: PathBuf,
+    /// Where the Stack is saved after each change, or `None` if saving is disabled
+    /// because the existing file couldn't be loaded.
+    stack_path: Option<PathBuf>,
     input: InputLine,
     input_mode: InputMode,
     status: Option<String>,
@@ -34,15 +36,26 @@ impl App {
         Self::with_stack_path(persistence::default_path())
     }
 
-    /// Loads the Stack from `stack_path` and saves it there after every change.
+    /// Loads the Stack from `stack_path` and saves it there after every change. If the file
+    /// exists but can't be loaded, the session starts empty and never saves, so the file
+    /// isn't overwritten.
     pub fn with_stack_path(stack_path: PathBuf) -> Self {
-        let stack = persistence::load(&stack_path).unwrap_or_default();
+        let (stack, stack_path, status) = match persistence::load(&stack_path) {
+            Ok(stack) => (stack, Some(stack_path), None),
+            Err(error) => (
+                Vec::new(),
+                None,
+                Some(format!(
+                    "couldn't load stack: {error}; changes won't be saved"
+                )),
+            ),
+        };
         Self {
             calculator: Calculator::with_stack(stack),
             stack_path,
             input: InputLine::default(),
             input_mode: InputMode::Editing,
-            status: None,
+            status,
         }
     }
 
@@ -84,8 +97,10 @@ impl App {
             Ok(Outcome::Quit) => Outcome::Quit,
             Ok(Outcome::Continue) => {
                 self.input.clear();
-                if let Err(error) = persistence::save(&self.stack_path, self.calculator.stack()) {
-                    self.status = Some(format!("couldn't save stack: {error}"));
+                if let Some(path) = &self.stack_path {
+                    if let Err(error) = persistence::save(path, self.calculator.stack()) {
+                        self.status = Some(format!("couldn't save stack: {error}"));
+                    }
                 }
                 Outcome::Continue
             }
@@ -214,5 +229,24 @@ mod tests {
 
         assert_eq!(submit(&mut app, "dup"), Outcome::Continue);
         assert_eq!(app.calculator.stack(), &[5.0, 5.0]);
+    }
+
+    #[test]
+    fn failed_load_shows_a_status_message_and_disables_saving() {
+        let dir = tempfile::tempdir().unwrap();
+        // A directory at the stack path can't be read as a file, so loading fails.
+        let path = dir.path().join("stack.txt");
+        std::fs::create_dir(&path).unwrap();
+        let mut app = App::with_stack_path(path.clone());
+
+        let status = app.status.clone().unwrap_or_default();
+        assert!(status.starts_with("couldn't load stack: "), "{status:?}");
+        assert!(status.ends_with("; changes won't be saved"), "{status:?}");
+
+        app.status = None;
+        assert_eq!(submit(&mut app, "5"), Outcome::Continue);
+        assert_eq!(app.status, None);
+        assert_eq!(app.calculator.stack(), &[5.0]);
+        assert!(path.is_dir());
     }
 }

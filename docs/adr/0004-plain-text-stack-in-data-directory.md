@@ -10,7 +10,8 @@ After every successful change, the Stack is saved as one Value per line to `rpn-
 
 ## Consequences
 
-- The file is human-readable and editable. Loading skips lines that don't parse and treats a missing file as an empty Stack, so startup never fails.
+- The file is human-readable and editable. Loading skips lines that aren't valid UTF-8 or don't parse and treats a missing file as an empty Stack, so startup never fails.
+- If the file exists but can't be read (e.g. permission denied), the session starts with an empty Stack, shows a Status message and disables saving, so the unread file is never overwritten.
 - History isn't saved, so `undo` can't reach past the start of a session.
 - A failed save shows a Status message instead of quitting.
 - `load` and `save` take an explicit path, so tests use a temp directory and never touch the real Stack.
