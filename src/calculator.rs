@@ -1,4 +1,5 @@
 use std::f64::consts::PI;
+use std::fmt;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Category {
@@ -44,6 +45,17 @@ pub enum Kind {
     Undo,
     Redo,
     Quit,
+}
+
+impl Kind {
+    /// How many Values must be on the Stack for this Operation to run.
+    fn operands(self) -> usize {
+        match self {
+            Kind::Binary(_) | Kind::Swap => 2,
+            Kind::Unary(_) | Kind::Drop | Kind::Duplicate => 1,
+            _ => 0,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -125,6 +137,35 @@ pub enum Outcome {
     Quit,
 }
 
+/// Why an input was rejected. A rejected input leaves the Stack and History unchanged.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum CalcError {
+    UnknownCommand(String),
+    NotEnoughOperands {
+        op: &'static str,
+        needed: usize,
+        have: usize,
+    },
+    NothingToUndo,
+    NothingToRedo,
+}
+
+impl fmt::Display for CalcError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            CalcError::UnknownCommand(input) => write!(f, "unknown command: {input}"),
+            CalcError::NotEnoughOperands { op, needed, have } => {
+                let values = if *needed == 1 { "value" } else { "values" };
+                write!(f, "{op} needs {needed} {values}, stack has {have}")
+            }
+            CalcError::NothingToUndo => write!(f, "nothing to undo"),
+            CalcError::NothingToRedo => write!(f, "nothing to redo"),
+        }
+    }
+}
+
+impl std::error::Error for CalcError {}
+
 #[derive(Debug, Default)]
 pub struct Calculator {
     stack: Vec<f64>,
@@ -148,50 +189,55 @@ impl Calculator {
         &self.stack
     }
 
-    pub fn execute(&mut self, input: &str) -> Outcome {
+    pub fn execute(&mut self, input: &str) -> Result<Outcome, CalcError> {
         if let Ok(value) = input.parse::<f64>() {
             self.change(|stack| stack.push(value));
-            return Outcome::Continue;
+            return Ok(Outcome::Continue);
         }
         let Some(operation) = lookup(input) else {
-            return Outcome::Continue;
+            return Err(CalcError::UnknownCommand(input.to_string()));
         };
         let len = self.stack.len();
+        let needed = operation.kind.operands();
+        if len < needed {
+            return Err(CalcError::NotEnoughOperands {
+                op: operation.name,
+                needed,
+                have: len,
+            });
+        }
         match operation.kind {
-            Kind::Binary(f) if len >= 2 => self.change(|stack| {
+            Kind::Binary(f) => self.change(|stack| {
                 let b = stack.pop().unwrap();
                 let a = stack.pop().unwrap();
                 stack.push(f(a, b));
             }),
-            Kind::Unary(f) if len >= 1 => self.change(|stack| {
+            Kind::Unary(f) => self.change(|stack| {
                 let a = stack.pop().unwrap();
                 stack.push(f(a));
             }),
             Kind::Constant(value) => self.change(|stack| stack.push(value)),
-            Kind::Swap if len >= 2 => self.change(|stack| stack.swap(len - 1, len - 2)),
-            Kind::Duplicate if len >= 1 => self.change(|stack| stack.push(stack[len - 1])),
+            Kind::Swap => self.change(|stack| stack.swap(len - 1, len - 2)),
+            Kind::Duplicate => self.change(|stack| stack.push(stack[len - 1])),
             Kind::Clear => {
                 self.undo.push(self.stack.clone());
                 self.stack.clear();
             }
-            Kind::Drop if len >= 1 => {
+            Kind::Drop => {
                 self.undo.push(self.stack.clone());
                 self.stack.pop();
             }
             Kind::Undo => {
-                if let Some(previous) = self.undo.pop() {
-                    self.redo.push(std::mem::replace(&mut self.stack, previous));
-                }
+                let previous = self.undo.pop().ok_or(CalcError::NothingToUndo)?;
+                self.redo.push(std::mem::replace(&mut self.stack, previous));
             }
             Kind::Redo => {
-                if let Some(next) = self.redo.pop() {
-                    self.undo.push(std::mem::replace(&mut self.stack, next));
-                }
+                let next = self.redo.pop().ok_or(CalcError::NothingToRedo)?;
+                self.undo.push(std::mem::replace(&mut self.stack, next));
             }
-            Kind::Quit => return Outcome::Quit,
-            _ => {}
+            Kind::Quit => return Ok(Outcome::Quit),
         }
-        Outcome::Continue
+        Ok(Outcome::Continue)
     }
 
     fn change(&mut self, apply: impl FnOnce(&mut Vec<f64>)) {
@@ -208,7 +254,7 @@ mod tests {
     fn assert_stack(inputs: &[&str], expected: &[f64]) {
         let mut calc = Calculator::new();
         for input in inputs {
-            calc.execute(input);
+            let _ = calc.execute(input);
         }
         assert_eq!(calc.stack(), expected, "inputs: {inputs:?}");
     }
@@ -288,8 +334,8 @@ mod tests {
     #[test]
     fn factorial_stays_exact_up_to_170_and_overflows_at_171() {
         let mut calc = Calculator::new();
-        calc.execute("170");
-        calc.execute("!");
+        calc.execute("170").unwrap();
+        calc.execute("!").unwrap();
         assert_eq!(calc.stack(), &[7.257415615307994e306]);
         assert_stack(&["171", "!"], &[f64::INFINITY]);
     }
@@ -344,34 +390,120 @@ mod tests {
     }
 
     #[test]
+    fn unknown_input_reports_unknown_command() {
+        let mut calc = Calculator::new();
+        assert_eq!(
+            calc.execute("foo"),
+            Err(CalcError::UnknownCommand("foo".to_string()))
+        );
+    }
+
+    #[test]
+    fn too_few_values_reports_not_enough_operands() {
+        let cases: [(&[&str], &str, usize, usize); 4] = [
+            (&["1"], "swap", 2, 1),
+            (&["1"], "+", 2, 1),
+            (&[], "neg", 1, 0),
+            (&[], "drop", 1, 0),
+        ];
+        for (setup, op, needed, have) in cases {
+            let mut calc = Calculator::new();
+            for input in setup {
+                calc.execute(input).unwrap();
+            }
+            assert_eq!(
+                calc.execute(op),
+                Err(CalcError::NotEnoughOperands { op, needed, have })
+            );
+        }
+    }
+
+    #[test]
+    fn empty_history_reports_nothing_to_undo_or_redo() {
+        let mut calc = Calculator::new();
+        assert_eq!(calc.execute("undo"), Err(CalcError::NothingToUndo));
+        assert_eq!(calc.execute("redo"), Err(CalcError::NothingToRedo));
+        calc.execute("1").unwrap();
+        assert_eq!(calc.execute("redo"), Err(CalcError::NothingToRedo));
+    }
+
+    #[test]
+    fn errors_display_as_status_messages() {
+        let cases = [
+            (
+                CalcError::UnknownCommand("foo".to_string()),
+                "unknown command: foo",
+            ),
+            (
+                CalcError::NotEnoughOperands {
+                    op: "swap",
+                    needed: 2,
+                    have: 1,
+                },
+                "swap needs 2 values, stack has 1",
+            ),
+            (
+                CalcError::NotEnoughOperands {
+                    op: "neg",
+                    needed: 1,
+                    have: 0,
+                },
+                "neg needs 1 value, stack has 0",
+            ),
+            (CalcError::NothingToUndo, "nothing to undo"),
+            (CalcError::NothingToRedo, "nothing to redo"),
+        ];
+        for (error, text) in cases {
+            assert_eq!(error.to_string(), text);
+        }
+    }
+
+    #[test]
+    fn a_failed_operation_leaves_stack_and_history_unchanged() {
+        let mut calc = Calculator::new();
+        for input in ["1", "2", "+", "5", "undo"] {
+            calc.execute(input).unwrap();
+        }
+        for input in ["foo", "swap"] {
+            assert!(calc.execute(input).is_err(), "{input:?}");
+            assert_eq!(calc.stack(), &[3.0], "{input:?}");
+        }
+        calc.execute("redo").unwrap();
+        assert_eq!(calc.stack(), &[3.0, 5.0]);
+        calc.execute("undo").unwrap();
+        calc.execute("undo").unwrap();
+        assert_eq!(calc.stack(), &[1.0, 2.0]);
+    }
+
+    #[test]
     fn quit_reports_quit_and_leaves_stack_unchanged() {
         let mut calc = Calculator::with_stack(vec![1.0]);
-        assert_eq!(calc.execute("quit"), Outcome::Quit);
+        assert_eq!(calc.execute("quit"), Ok(Outcome::Quit));
         assert_eq!(calc.stack(), &[1.0]);
     }
 
     #[test]
     fn other_input_reports_continue() {
         let mut calc = Calculator::new();
-        assert_eq!(calc.execute("1"), Outcome::Continue);
-        assert_eq!(calc.execute("neg"), Outcome::Continue);
+        assert_eq!(calc.execute("1"), Ok(Outcome::Continue));
+        assert_eq!(calc.execute("neg"), Ok(Outcome::Continue));
     }
 
     #[test]
     fn starts_from_an_existing_stack() {
         let mut calc = Calculator::with_stack(vec![2.0, 3.0]);
-        calc.execute("*");
+        calc.execute("*").unwrap();
         assert_eq!(calc.stack(), &[6.0]);
     }
 
     fn is_accepted(name: &str) -> bool {
         let mut calc = Calculator::new();
         for input in ["2", "-0.5", "7", "undo"] {
-            calc.execute(input);
+            calc.execute(input).unwrap();
         }
         let before = calc.stack().to_vec();
         let outcome = calc.execute(name);
-        outcome == Outcome::Quit || calc.stack() != before.as_slice()
+        outcome == Ok(Outcome::Quit) || calc.stack() != before.as_slice()
     }
 
     #[test]

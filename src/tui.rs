@@ -21,6 +21,7 @@ pub struct App {
     stack_path: PathBuf,
     input: InputLine,
     input_mode: InputMode,
+    status: Option<String>,
 }
 
 enum InputMode {
@@ -37,6 +38,7 @@ impl App {
             stack_path,
             input: InputLine::default(),
             input_mode: InputMode::Editing,
+            status: None,
         }
     }
 
@@ -45,6 +47,9 @@ impl App {
             terminal.draw(|frame| self.draw(frame))?;
 
             if let Event::Key(key) = event::read()? {
+                if key.kind == KeyEventKind::Press {
+                    self.status = None;
+                }
                 match self.input_mode {
                     InputMode::Normal => match key.code {
                         KeyCode::Char('e') => self.input_mode = InputMode::Editing,
@@ -71,22 +76,28 @@ impl App {
     }
 
     fn submit(&mut self) -> Result<Outcome> {
-        let outcome = self.calculator.execute(self.input.text());
-        if outcome == Outcome::Quit {
-            return Ok(outcome);
+        match self.calculator.execute(self.input.text()) {
+            Ok(Outcome::Quit) => Ok(Outcome::Quit),
+            Ok(Outcome::Continue) => {
+                self.input.clear();
+                persistence::save(&self.stack_path, self.calculator.stack())?;
+                Ok(Outcome::Continue)
+            }
+            Err(error) => {
+                self.status = Some(error.to_string());
+                Ok(Outcome::Continue)
+            }
         }
-        self.input.clear();
-        persistence::save(&self.stack_path, self.calculator.stack())?;
-        Ok(outcome)
     }
 
     fn draw(&self, frame: &mut Frame) {
         let vertical = Layout::vertical([
             Constraint::Length(1),
             Constraint::Length(3),
+            Constraint::Length(1),
             Constraint::Min(1),
         ]);
-        let [help_area, input_area, main_area] = vertical.areas(frame.area());
+        let [help_area, input_area, status_area, main_area] = vertical.areas(frame.area());
 
         let (msg, style) = match self.input_mode {
             InputMode::Normal => (
@@ -126,6 +137,11 @@ impl App {
                 input_area.x + self.input.cursor() as u16 + 1,
                 input_area.y + 1,
             ));
+        }
+
+        if let Some(status) = &self.status {
+            let status = Paragraph::new(status.as_str()).style(Style::default().fg(Color::Red));
+            frame.render_widget(status, status_area);
         }
 
         let horizontal =
